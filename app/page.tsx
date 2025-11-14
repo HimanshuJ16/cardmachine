@@ -156,8 +156,16 @@ export default function Page() {
 
       <footer className="border-t">
         <div className="max-w-6xl mx-auto px-6 py-8 text-sm text-gray-600 flex items-center gap-3">
-          <img src="/logo-cmq1.png" alt="CardMachineQuote.com" className="h-6 w-auto object-contain" />
+          <img src="/logo-cmq.png" alt="CardMachineQuote.com" className="h-6 w-auto object-contain" />
           <span>© {new Date().getFullYear()} CardMachineQuote.com</span>
+          
+          {/* --- START MODIFICATION --- */}
+          <div className="ml-auto flex gap-4">
+            <a href="/CardMachineQuote_PrivacyPolicy.pdf" className="hover:underline">Privacy Policy</a>
+            <a href="/CardMachineQuote_TermsAndConditions.pdf" className="hover:underline">Terms & Conditions</a>
+          </div>
+          {/* --- END MODIFICATION --- */}
+
         </div>
       </footer>
     </main>
