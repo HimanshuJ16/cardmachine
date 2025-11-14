@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { extractFromFile } from '@/lib/providers'
-import { priceCMQ, computeSavings } from '@/lib/pricing'
+// --- START MODIFICATION ---
+import { priceCMQ, computeSavings, pickTier, QuoteInputs } from '@/lib/pricing'
+import { RATES } from '@/config/rates'
+// --- END MODIFICATION ---
 
 export const runtime = 'nodejs'
 
@@ -35,23 +38,68 @@ export async function POST(req: NextRequest){
   }
   
 
-  const pricingInput = { monthTurnover:fields.monthTurnover, mix:fields.mix, currentFeesMonthly:fields.currentFeesMonthly, currentFixedMonthly:fields.currentFixedMonthly, terminalOption:terminalOption as any, terminalsCount }
+  const pricingInput: QuoteInputs = { monthTurnover:fields.monthTurnover, mix:fields.mix, currentFeesMonthly:fields.currentFeesMonthly, currentFixedMonthly:fields.currentFixedMonthly, terminalOption:terminalOption as any, terminalsCount }
   const { cmqMonthly, oneOff } = priceCMQ(pricingInput)
   const { monthlySaving, annualSaving } = computeSavings(pricingInput)
 
   // --- START MODIFICATION ---
-  // Added 'currentMonthly' to the quote object per the spec
+  // Determine pricing tier and qualified rates per CMQ_Email_Dev_Instructions_v2 [cite: 151-201]
+  const tier = pickTier(RATES, pricingInput.monthTurnover);
+  let pricingTier = "C"; // Default to High Volume
+  let qualifiedRates: any = {};
+
+  if (tier.turnover_max === 15000) { // Tier A [cite: 85-88]
+    pricingTier = "A";
+    qualifiedRates = {
+      headline: "Based on your turnover, you qualify for our simple flat rate:",
+      simpleAllCardsRate: tier.rates.all_cards_pct,
+      debitRate: null,
+      creditRate: null,
+      businessRate: null,
+      internationalRate: null,
+      amexRate: null, // Covered by simpleAllCardsRate
+      authFee: tier.rates.auth_fee
+    };
+  } else if (tier.turnover_max === 30000) { // Tier B [cite: 89-103]
+    pricingTier = "B";
+    qualifiedRates = {
+      headline: "Based on your turnover, you qualify for our mid-volume pricing:",
+      simpleAllCardsRate: null,
+      debitRate: tier.rates.debit_pct,
+      creditRate: tier.rates.credit_pct,
+      businessRate: tier.rates.business_pct,
+      internationalRate: tier.rates.intl_pct,
+      amexRate: tier.rates.amex_pct,
+      authFee: tier.rates.auth_fee
+    };
+  } else { // Tier C [cite: 105-119]
+    pricingTier = "C";
+    qualifiedRates = {
+      headline: "Based on your turnover, you qualify for our high-volume pricing:",
+      simpleAllCardsRate: null,
+      debitRate: tier.rates.debit_pct,
+      creditRate: tier.rates.credit_pct,
+      businessRate: tier.rates.business_pct,
+      internationalRate: tier.rates.intl_pct,
+      amexRate: tier.rates.amex_pct,
+      authFee: tier.rates.auth_fee
+    };
+  }
+
+  // Added 'currentMonthly', 'pricingTier', and 'qualifiedRates' to the quote object
   return NextResponse.json({ 
     providerGuess:fields.providerGuess, 
     confidence:fields.confidence, 
     fields, 
     quote:{ 
       tierName:'auto', 
-      currentMonthly: pricingInput.currentFeesMonthly, // <-- ADDED THIS
+      currentMonthly: pricingInput.currentFeesMonthly,
       cmqMonthly, 
       oneOff, 
       monthlySaving, 
-      annualSaving 
+      annualSaving,
+      pricingTier: pricingTier,
+      qualifiedRates: qualifiedRates
     } 
   })
   // --- END MODIFICATION ---

@@ -1,15 +1,22 @@
 import { AiExtractSchema, AiExtract } from './ai'
+// --- START MODIFICATION ---
+// Import the PDF text extractor
+import { extractPdfTextFromBytes } from '@/lib/parsers/pdfText'
+// --- END MODIFICATION ---
 
 export async function openaiExtractFromFile(file: Blob): Promise<AiExtract> {
   if (!process.env.OPENAI_API_KEY) throw new Error('Missing OPENAI_API_KEY')
   
   const bytes = Buffer.from(await file.arrayBuffer())
-  const base64data = bytes.toString('base64');
-  const mimeType = file.type || 'application/pdf'; // Get MIME type from file
+  const mimeType = file.type || 'application/pdf';
+  
+  // --- START MODIFICATION ---
+  // Check if the file is a PDF
+  const isPdfFile = mimeType === 'application/pdf';
 
   const system = `You extract structured finance data from UK merchant services statements. Return ONLY valid JSON.`
   const user = `Extract the following fields from the merchant statement. You MUST find the grand total for each.
-- Total turnover (total value of all transactions)
+- Total turnover (total value of all transactions). Note: If you see a table "Card transaction rates" with a "Total value of transactions", that value IS the total turnover.
 - Total transaction count
 - Total amount charged in fees by the provider (this is the total 'Net amount' or 'Total due' before VAT)
 - providerGuess
@@ -17,28 +24,42 @@ export async function openaiExtractFromFile(file: Blob): Promise<AiExtract> {
 - card mix (debit, credit, business, international, amex turnovers and total txCount)
 Return ONLY valid JSON.`
 
-  // --- START MODIFICATION ---
+  let requestBody: any;
 
-  // 1. Use the standard Chat Completions endpoint
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
+  if (isPdfFile) {
+    // PDF: Extract text and send text-only request
+    console.log("File is PDF, extracting text for AI...");
+    const extractedText = await extractPdfTextFromBytes(bytes);
+    
+    requestBody = {
       model: process.env.AI_MODEL || 'gpt-4o-mini',
-      
-      // 2. Use the standard 'messages' array structure
       messages: [
         { role: 'system', content: system },
         {
           role: 'user',
-          // 3. Use the standard 'content' array for multimodal input
+          // Send the extracted text *and* the prompt
+          content: [
+            { type: 'text', text: "Here is the text extracted from the PDF:\n\n" + extractedText },
+            { type: 'text', text: user }
+          ]
+        }
+      ],
+      response_format: { type: 'json_object' }
+    };
+
+  } else {
+    // IMAGE: Send image data URL request
+    console.log("File is Image, sending base64 data for AI...");
+    const base64data = bytes.toString('base64');
+    requestBody = {
+      model: process.env.AI_MODEL || 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: system },
+        {
+          role: 'user',
           content: [
             { type: 'text', text: user },
             {
-              // 4. Use 'image_url' and format as a data URL
               type: 'image_url',
               image_url: {
                 url: `data:${mimeType};base64,${base64data}`
@@ -47,12 +68,21 @@ Return ONLY valid JSON.`
           ]
         }
       ],
-      
-      // 5. Use the standard 'json_object' response format
       response_format: { type: 'json_object' }
-    }),
+    };
+  }
+
+  // This fetch call is now generic for both PDF (text) and Image data
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(requestBody), // Use the dynamically built request body
     signal: AbortSignal.timeout(parseInt(process.env.AI_TIMEOUT_MS || '240000'))
   })
+  // --- END MODIFICATION ---
 
   // Add enhanced error logging
   if (!res.ok) {
@@ -63,10 +93,8 @@ Return ONLY valid JSON.`
 
   const body = await res.json()
 
-  // 6. Parse the standard response structure
   const text = body.choices[0].message.content;
   const raw = text; 
-  // --- END MODIFICATION ---
-
+  
   return AiExtractSchema.parse(typeof raw === 'string' ? JSON.parse(raw) : raw)
 }

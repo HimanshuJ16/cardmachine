@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-// --- START MODIFICATION ---
-// import { buildQuotePDF } from '@/lib/pdf' // No longer needed
 import { sendEmail } from '@/lib/email'
-import { priceCMQ, QuoteInputs } from '@/lib/pricing' // Import pricing functions
-// --- END MODIFICATION ---
+import { priceCMQ, QuoteInputs } from '@/lib/pricing'
 
 export const runtime = 'nodejs'
 
-// HTML template from CMQ_Email_Dev_Instructions.pdf [cite: 274-331]
-// Placeholders have been corrected to {{key}} format for replacement
+// --- START MODIFICATION ---
+// Added {{qualifiedRatesHtml}} placeholder below the cost breakdown
 const emailTemplate = `
 <div style="font-family: Arial, Helvetica, sans-serif; color: #111; max-width: 650px; margin:0 auto;">
   <h2>Your CardMachineQuote.com Savings Report</h2>
@@ -37,6 +34,9 @@ const emailTemplate = `
     <li>No PCI fees &amp; no minimum monthly fee</li>
     <li><strong>Total monthly cost: £{{cmqMonthly}}</strong></li>
   </ul>
+
+  {{qualifiedRatesHtml}}
+
   <h3 style="margin-top: 30px;">Your card machine options</h3>
   <img src="https://cardmachine.vercel.app/1.jpg" alt="Card machine" style="max-width:100%; border-radius:12px; margin:12px 0;" />
   <ul>
@@ -63,15 +63,13 @@ const emailTemplate = `
   </div>
 </div>
 `
+// --- END MODIFICATION ---
 
 export async function POST(req: NextRequest){
   try {
     const body = await req.json()
     const { email, customerName, analysePayload, terminalOption } = body
     if(!email || !analysePayload) return NextResponse.json({error:'Missing fields'},{status:400})
-
-    // --- START MODIFICATION ---
-    // Remove PDF generation, build new data model
 
     // 1. Re-run pricing to get fee breakdown
     const pricingInput: QuoteInputs = { 
@@ -84,16 +82,54 @@ export async function POST(req: NextRequest){
     }
     const { cmqMonthly, cmqTxnFees, cmqAuthFees } = priceCMQ(pricingInput)
     
-    // 2. Get other values for template [cite: 261-272]
-    const { monthlySaving, annualSaving } = analysePayload.quote;
+    // 2. Get other values for template
+    const { monthlySaving, annualSaving, qualifiedRates } = analysePayload.quote; // Get new rates object
     const currentMonthly = analysePayload.fields.currentFeesMonthly ?? 0;
     const currentTerminalFees = analysePayload.fields.currentFixedMonthly ?? 0;
-    // Calculate current transaction fees as the remainder
     const currentTxnFees = Math.max(0, currentMonthly - currentTerminalFees);
-    const currentOtherFees = 0; // Assumption, as we only have fixed monthly
+    const currentOtherFees = 0; // Assumption
     const calendlyUrl = process.env.NEXT_PUBLIC_CALENDLY_URL || '';
 
-    // 3. Populate HTML template
+    // --- START MODIFICATION ---
+    // 3. Build Qualified Rates HTML from spec [cite: 202-227]
+    let ratesListHtml = '';
+    if (qualifiedRates.simpleAllCardsRate) {
+      ratesListHtml += `<li>All cards: <strong>${qualifiedRates.simpleAllCardsRate}%</strong></li>`;
+    }
+    if (qualifiedRates.debitRate) {
+      ratesListHtml += `<li>Debit cards: <strong>${qualifiedRates.debitRate}%</strong></li>`;
+    }
+    if (qualifiedRates.creditRate) {
+      ratesListHtml += `<li>Credit cards: <strong>${qualifiedRates.creditRate}%</strong></li>`;
+    }
+    if (qualifiedRates.businessRate) {
+      ratesListHtml += `<li>Business / corporate cards: <strong>${qualifiedRates.businessRate}%</strong></li>`;
+    }
+    if (qualifiedRates.internationalRate) {
+      ratesListHtml += `<li>International cards: <strong>${qualifiedRates.internationalRate}%</strong></li>`;
+    }
+    if (qualifiedRates.amexRate && !qualifiedRates.simpleAllCardsRate) {
+      ratesListHtml += `<li>Amex: <strong>${qualifiedRates.amexRate}%</strong></li>`;
+    }
+    
+    ratesListHtml += `<li>Authorisation fee: <strong>£${qualifiedRates.authFee.toFixed(3)} per transaction</strong></li>`;
+    ratesListHtml += `<li>PCI fees: <strong>£0</strong></li>`;
+    ratesListHtml += `<li>Minimum monthly fee: <strong>£0</strong></li>`;
+    ratesListHtml += `<li>Terminals: <strong>£20/month (12-month contract) or £99 buy-out</strong></li>`;
+
+    const qualifiedRatesHtml = `
+    <h3 style="margin-top: 30px;">Your qualified CardMachineQuote.com rates</h3>
+    <p style="margin:6px 0; font-size: 14px; color:#333;">
+      ${qualifiedRates.headline}
+    </p>
+    <ul style="margin: 4px 0 14px 18px; padding:0; font-size:14px; color:#333;">
+      ${ratesListHtml}
+    </ul>
+    `;
+    // --- END MODIFICATION ---
+
+
+    // 4. Populate HTML template
     let htmlBody = emailTemplate
       .replace(/{{currentMonthly}}/g, currentMonthly.toFixed(2))
       .replace(/{{cmqMonthly}}/g, cmqMonthly.toFixed(2))
@@ -104,15 +140,17 @@ export async function POST(req: NextRequest){
       .replace(/{{currentOtherFees}}/g, currentOtherFees.toFixed(2))
       .replace(/{{cmqTxnFees}}/g, cmqTxnFees.toFixed(2))
       .replace(/{{cmqAuthFees}}/g, cmqAuthFees.toFixed(2))
-      .replace(/{{calendlyUrl}}/g, calendlyUrl);
+      .replace(/{{calendlyUrl}}/g, calendlyUrl)
+      // --- START MODIFICATION ---
+      .replace(/{{qualifiedRatesHtml}}/g, qualifiedRatesHtml); // Inject new HTML block
+      // --- END MODIFICATION ---
 
-    // 4. Send the HTML email
+    // 5. Send the HTML email
     await sendEmail({
       to: email,
       subject: 'Your CardMachineQuote.com savings quote',
       html: htmlBody
     })
-    // --- END MODIFICATION ---
 
     return NextResponse.json({ ok:true })
   } catch (e:any) {
