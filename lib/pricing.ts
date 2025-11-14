@@ -8,19 +8,27 @@ const pct = (p:number, a:number)=> (p/100)*a;
 
 export function priceCMQ(inp:QuoteInputs, cfg:RatesConfig=RATES){
   const tier:any = pickTier(cfg, inp.monthTurnover).rates; const t=inp.mix;
-  let variable = tier.all_cards_pct!==undefined
+  
+  // --- START MODIFICATION ---
+  const cmqTxnFees = tier.all_cards_pct!==undefined
     ? pct(tier.all_cards_pct, t.debitTurnover+t.creditTurnover+t.businessTurnover+t.internationalTurnover+t.amexTurnover)
     : pct(tier.debit_pct, t.debitTurnover)+pct(tier.credit_pct, t.creditTurnover)+pct(tier.business_pct, t.businessTurnover)+pct(tier.intl_pct, t.internationalTurnover)+pct(tier.amex_pct, t.amexTurnover);
-  const perTx = t.txCount * tier.auth_fee;
+  
+  const cmqAuthFees = t.txCount * tier.auth_fee;
   const terminal = inp.terminalOption==='monthly'? RATES.fixed_fees.terminal_monthly*inp.terminalsCount : 0;
   const oneOff   = inp.terminalOption==='buyout' ? RATES.fixed_fees.terminal_buyout*inp.terminalsCount : 0;
   const fixed = RATES.fixed_fees.pci + RATES.fixed_fees.mmf + terminal;
-  return { cmqMonthly: variable+perTx+fixed, oneOff };
+  const cmqMonthly = cmqTxnFees + cmqAuthFees + fixed;
+
+  return { cmqMonthly, oneOff, cmqTxnFees, cmqAuthFees };
+  // --- END MODIFICATION ---
 }
 
 export function computeSavings(inp:QuoteInputs, cfg:RatesConfig=RATES){
-  const {cmqMonthly, oneOff}=priceCMQ(inp, cfg); const current = inp.currentFeesMonthly ?? inp.currentFixedMonthly;
+  // --- START MODIFICATION ---
+  const {cmqMonthly, oneOff, cmqTxnFees, cmqAuthFees}=priceCMQ(inp, cfg); const current = inp.currentFeesMonthly ?? inp.currentFixedMonthly;
+  // --- END MODIFICATION ---
   const monthlySaving = current!=null ? (current - cmqMonthly) : null;
   const annualSaving = monthlySaving!=null ? monthlySaving*12 : null;
-  return { cmqMonthly, oneOff, monthlySaving, annualSaving };
+  return { cmqMonthly, oneOff, monthlySaving, annualSaving, cmqTxnFees, cmqAuthFees };
 }

@@ -73,7 +73,7 @@ export default function Page() {
       <header className="border-b bg-white/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-6xl mx-auto flex justify-between items-center px-6 py-4">
           <div className="flex items-center gap-3">
-            <img src="/logo-cmq.png" alt="CardMachineQuote.com" className="h-8 w-auto object-contain" />
+            <img src="/logo-cmq1.png" alt="CardMachineQuote.com" className="h-12 w-auto object-contain" />
             <span className="sr-only">CardMachineQuote.com</span>
           </div>
           <a href="#upload" className="text-white rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: brandBlue }}>Get a Quote</a>
@@ -84,15 +84,15 @@ export default function Page() {
         <div className="max-w-6xl mx-auto px-6 py-16 grid md:grid-cols-2 gap-10 items-center">
           <div>
             <h1 className="text-4xl font-bold leading-tight mb-4">Upload your merchant statement. <br /><span style={{ color: brandBlue }}>See your savings</span> in 30 seconds.</h1>
-            <p className="text-gray-700 mb-6 text-lg">We analyse your fees line-by-line and show a clear comparison against CardMachineQuote.com standard rates. No obligation.</p>
+            <p className="text-gray-700 mb-6 text-lg">Our <span style={{ color: brandBlue }}>AI technology</span> analyses your fees line-by-line, looks up the best deal available and shows a clear cost saving comparison for you to switch!</p>
             <ul className="space-y-2 text-gray-700">
-              <li>✅ 0.79% all cards ≤ £15k/mo</li>
-              <li>✅ From 0.35% debit above £15k</li>
-              <li>✅ From 0.25% debit above £30k</li>
-              <li>✅ £0 PCI & £0 MMF</li>
-              <li>✅ Terminals: £20/mo or £99 buy-out</li>
+              <li>✅ Let <span style={{ color: brandBlue }}>AI technology</span> find the right deal for your business</li>
+              <li>✅ Avoid the untrustworthy salespeople</li>
+              <li>✅ Rates from <span style={{ color: brandBlue }}>0.25%</span> matched to your business</li>
+              <li>✅ All hidden fees identified and removed</li>
+              <li>✅ Clear monthly and yearly cost saving <span style={{ color: brandBlue }}>displayed in 30 seconds</span></li>
             </ul>
-            <a href="#upload" className="mt-8 inline-flex text-white font-medium px-6 py-3 rounded-xl shadow-sm" style={{ backgroundColor: brandBlue }}>Start Now</a>
+            {/* <a href="#upload" className="mt-8 inline-flex text-white font-medium px-6 py-3 rounded-xl shadow-sm" style={{ backgroundColor: brandBlue }}>Start Now</a> */}
           </div>
           <div className="bg-white rounded-2xl shadow p-6 border">
             <div id="upload">
@@ -141,9 +141,10 @@ export default function Page() {
         <div className="max-w-6xl mx-auto px-6 py-10 grid md:grid-cols-2 gap-8">
           <div>
             <h3 className="text-xl font-semibold">FAQs</h3>
-            <details className="mt-4 bg-white rounded-xl p-4 border"><summary className="font-medium cursor-pointer">Can you read any statement?</summary><p className="mt-2 text-sm text-gray-700">Yes. We support common providers automatically and use OCR + smart mapping for everything else. If anything is unclear, you can tweak fields before we finalise your quote.</p></details>
-            <details className="mt-3 bg-white rounded-xl p-4 border"><summary className="font-medium cursor-pointer">What happens to my data?</summary><p className="mt-2 text-sm text-gray-700">We process your file solely to generate your estimate. By default we don’t retain files; you can consent to let a specialist review if you’d like.</p></details>
-            <details className="mt-3 bg-white rounded-xl p-4 border"><summary className="font-medium cursor-pointer">Do you charge PCI/MMF?</summary><p className="mt-2 text-sm text-gray-700">PCI and MMF are £0 on our standard packages. Terminal is £20/mo (12‑month) or £99 buy‑out.</p></details>
+            <details className="mt-4 bg-white rounded-xl p-4 border"><summary className="font-medium cursor-pointer">Can you read any statement?</summary><p className="mt-2 text-sm text-gray-700">Yes. We support all major merchant services providers automatically, and our system can read most PDF or image-based statements using AI.</p></details>
+            <details className="mt-3 bg-white rounded-xl p-4 border"><summary className="font-medium cursor-pointer">What happens to my data?</summary><p className="mt-2 text-sm text-gray-700">We process your file solely to generate your estimate and produce your personalised quote.</p></details>
+            <details className="mt-3 bg-white rounded-xl p-4 border"><summary className="font-medium cursor-pointer">How do I switch to the better deal?</summary><p className="mt-2 text-sm text-gray-700">Use the calendar at the bottom of our homepage — or the link included in your quote email — to book a call. One of our team members will walk you through the switch.</p></details>
+            <details className="mt-3 bg-white rounded-xl p-4 border"><summary className="font-medium cursor-pointer">Are there any hidden fees?</summary><p className="mt-2 text-sm text-gray-700">No. There are no hidden fees. Everything you pay will be clearly displayed on your quote email.</p></details>
           </div>
           <div>
             <h3 className="text-xl font-semibold">Book a callback</h3>
@@ -155,7 +156,7 @@ export default function Page() {
 
       <footer className="border-t">
         <div className="max-w-6xl mx-auto px-6 py-8 text-sm text-gray-600 flex items-center gap-3">
-          <img src="/logo-cmq.png" alt="CardMachineQuote.com" className="h-6 w-auto object-contain" />
+          <img src="/logo-cmq1.png" alt="CardMachineQuote.com" className="h-6 w-auto object-contain" />
           <span>© {new Date().getFullYear()} CardMachineQuote.com</span>
         </div>
       </footer>

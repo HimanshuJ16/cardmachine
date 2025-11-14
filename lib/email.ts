@@ -1,14 +1,14 @@
 import nodemailer from 'nodemailer'
 
+// --- START MODIFICATION ---
 type SendArgs = {
   to: string
   subject: string
-  text: string
-  filename: string
-  content: Buffer
+  html: string
 }
 
-export async function sendEmailWithAttachment(args: SendArgs) {
+export async function sendEmail(args: SendArgs) {
+// --- END MODIFICATION ---
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env
   if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
     throw new Error('SMTP credentials missing: set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and optional SMTP_FROM')
@@ -21,11 +21,13 @@ export async function sendEmailWithAttachment(args: SendArgs) {
     auth: { user: SMTP_USER, pass: SMTP_PASS },
   })
 
+  // --- START MODIFICATION ---
+  // Updated to send HTML email
   await transporter.sendMail({
     from: SMTP_FROM || `CardMachineQuote.com <${SMTP_USER}>`,
     to: args.to,
     subject: args.subject,
-    text: args.text,
-    attachments: [{ filename: args.filename, content: args.content }],
+    html: args.html,
   })
+  // --- END MODIFICATION ---
 }
