@@ -1,8 +1,5 @@
 import { AiExtractSchema, AiExtract } from './ai'
-// --- START MODIFICATION ---
-// Import the PDF text extractor
 import { extractPdfTextFromBytes } from '@/lib/parsers/pdfText'
-// --- END MODIFICATION ---
 
 export async function openaiExtractFromFile(file: Blob): Promise<AiExtract> {
   if (!process.env.OPENAI_API_KEY) throw new Error('Missing OPENAI_API_KEY')
@@ -15,14 +12,20 @@ export async function openaiExtractFromFile(file: Blob): Promise<AiExtract> {
   const isPdfFile = mimeType === 'application/pdf';
 
   const system = `You extract structured finance data from UK merchant services statements. Return ONLY valid JSON.`
+  
+  // --- START MODIFICATION ---
+  // Added explicit fallback rules for the 'mix' object
   const user = `Extract the following fields from the merchant statement. You MUST find the grand total for each.
 - Total turnover (total value of all transactions). Note: If you see a table "Card transaction rates" with a "Total value of transactions", that value IS the total turnover.
 - Total transaction count
 - Total amount charged in fees by the provider (this is the total 'Net amount' or 'Total due' before VAT)
 - providerGuess
 - sum of fixed monthly fees
-- card mix (debit, credit, business, international, amex turnovers and total txCount)
+- card mix (debit, credit, business, international, amex turnovers and total txCount).
+- **MIX FALLBACK RULE:** If you cannot find a detailed card mix, find the 'amexTurnover' (if any), subtract it from 'monthTurnover' to get 'otherTurnover', then set 'debitTurnover' = 'otherTurnover' * 0.5 and 'creditTurnover' = 'otherTurnover' * 0.5. Set 'businessTurnover' and 'internationalTurnover' to 0.
+
 Return ONLY valid JSON.`
+  // --- END MODIFICATION ---
 
   let requestBody: any;
 
@@ -37,7 +40,6 @@ Return ONLY valid JSON.`
         { role: 'system', content: system },
         {
           role: 'user',
-          // Send the extracted text *and* the prompt
           content: [
             { type: 'text', text: "Here is the text extracted from the PDF:\n\n" + extractedText },
             { type: 'text', text: user }
@@ -72,22 +74,21 @@ Return ONLY valid JSON.`
     };
   }
 
-  // This fetch call is now generic for both PDF (text) and Image data
+  // ... (rest of the file remains the same) ...
+  
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(requestBody), // Use the dynamically built request body
+    body: JSON.stringify(requestBody), 
     signal: AbortSignal.timeout(parseInt(process.env.AI_TIMEOUT_MS || '240000'))
   })
-  // --- END MODIFICATION ---
 
-  // Add enhanced error logging
   if (!res.ok) {
     const errorBody = await res.text();
-    console.error("OpenAI API Error Body:", errorBody); // Log the full error
+    console.error("OpenAI API Error Body:", errorBody);
     throw new Error(`OpenAI error ${res.status}`)
   }
 

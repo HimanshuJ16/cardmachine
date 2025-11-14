@@ -9,7 +9,6 @@ const pct = (p:number, a:number)=> (p/100)*a;
 export function priceCMQ(inp:QuoteInputs, cfg:RatesConfig=RATES){
   const tier:any = pickTier(cfg, inp.monthTurnover).rates; const t=inp.mix;
   
-  // --- START MODIFICATION ---
   const cmqTxnFees = tier.all_cards_pct!==undefined
     ? pct(tier.all_cards_pct, t.debitTurnover+t.creditTurnover+t.businessTurnover+t.internationalTurnover+t.amexTurnover)
     : pct(tier.debit_pct, t.debitTurnover)+pct(tier.credit_pct, t.creditTurnover)+pct(tier.business_pct, t.businessTurnover)+pct(tier.intl_pct, t.internationalTurnover)+pct(tier.amex_pct, t.amexTurnover);
@@ -20,14 +19,23 @@ export function priceCMQ(inp:QuoteInputs, cfg:RatesConfig=RATES){
   const fixed = RATES.fixed_fees.pci + RATES.fixed_fees.mmf + terminal;
   const cmqMonthly = cmqTxnFees + cmqAuthFees + fixed;
 
-  return { cmqMonthly, oneOff, cmqTxnFees, cmqAuthFees };
+  // --- START MODIFICATION ---
+  // Added logging per debug instructions 
+  console.log("--- PRICING CALCULATION ---");
+  console.log("turnover:", inp.monthTurnover);
+  console.log("txCount:", t.txCount);
+  console.log("mscCost (variable):", cmqTxnFees);
+  console.log("authCost (perTx):", cmqAuthFees);
+  console.log("fixedCost (pci/mmf/terminal):", fixed);
+  console.log("final cmqMonthly:", cmqMonthly);
+  console.log("---------------------------");
   // --- END MODIFICATION ---
+
+  return { cmqMonthly, oneOff, cmqTxnFees, cmqAuthFees };
 }
 
 export function computeSavings(inp:QuoteInputs, cfg:RatesConfig=RATES){
-  // --- START MODIFICATION ---
   const {cmqMonthly, oneOff, cmqTxnFees, cmqAuthFees}=priceCMQ(inp, cfg); const current = inp.currentFeesMonthly ?? inp.currentFixedMonthly;
-  // --- END MODIFICATION ---
   const monthlySaving = current!=null ? (current - cmqMonthly) : null;
   const annualSaving = monthlySaving!=null ? monthlySaving*12 : null;
   return { cmqMonthly, oneOff, monthlySaving, annualSaving, cmqTxnFees, cmqAuthFees };

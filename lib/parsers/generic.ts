@@ -36,9 +36,8 @@ export async function extractGeneric(file: Blob) {
   let tx = 0;
   let monthTurnover = 0;
 
-  // Strategy 1: Find the Dojo summary line which has both values
-  // This regex matches: "Subtotal" OR "Total" ... "8169" ... "£190,828.37"
-  const dojoSummaryRegex = /(Subtotal|Total)\s*(\d{2,8})\s*([£]?[\d,]+\.\d{2})/i;
+  // Strategy 1: Find the Dojo summary line
+  const dojoSummaryRegex = /(Subtotal|Total)[\s",]+(\d{2,8})[\s",]+([£]?[\d,]+\.\d{2})/i;
   const dojoMatch = text.match(dojoSummaryRegex);
 
   if (dojoMatch && dojoMatch[2] && dojoMatch[3]) {
@@ -46,6 +45,7 @@ export async function extractGeneric(file: Blob) {
     monthTurnover = money(dojoMatch[3]);
   } else {
     // Strategy 2: If Strategy 1 failed, try other regexes
+    // ... (this logic remains the same) ...
     for (const r of [
       /(transactions|tx\s*count)[^\d]{0,10}(\d{2,8})/i,
       /(Number\s+of\s+transactions)[\s",]+(\d{2,8})/i
@@ -58,7 +58,7 @@ export async function extractGeneric(file: Blob) {
     }
 
     for (const r of [
-      /(total\s+value\s+of\s+transactions)[^£\d]{0,30}([£]?[\d,]+(?:\.\d{1,2})?)/i, // Per instructions
+      /(total\s+value\s+of\s+transactions)[^£\d]{0,30}([£]?[\d,]+(?:\.\d{1,2})?)/i,
       /(total\s+turnover|gross\s+sales|total\s+card\s+sales)[^£\d]{0,30}([£]?[\d,]+(?:\.\d{1,2})?)/i,
       /(processed\s+volume|total\s+volume)[^£\d]{0,30}([£]?[\d,]+(?:\.\d{1,2})?)/i,
     ]) {
@@ -70,7 +70,6 @@ export async function extractGeneric(file: Blob) {
     }
   }
   
-  // Updated labels to include fees from both Dojo PDFs
   const labels = [
     'terminal',
     'pci',
@@ -81,17 +80,15 @@ export async function extractGeneric(file: Blob) {
     'gateway',
     'statement fee',
     'chargeback',
-    'services for dojo go',   // From first Dojo PDF
-    'Dojo Go',                // From new "Prosecco House" PDF
-    'Hardware care',          // From new "Prosecco House" PDF
-    'Platform',               // From new "Prosecco House" PDF
-    'Card machine & account services' // Header from new PDF
+    'services for dojo go',
+    'Dojo Go',
+    'Hardware care',
+    'Platform',
+    'Card machine & account services'
   ];
-  // --- END MODIFICATION ---
 
   let fixed = 0;
   for (const lab of labels) {
-    // This regex is intentionally broad to catch values after the label
     const m = new RegExp(
       `${lab}[^£\\n]{0,40}([£]?[\\d,]+(?:\\.\\d{1,2})?)`,
       'i'
@@ -99,20 +96,20 @@ export async function extractGeneric(file: Blob) {
     if (m) fixed += money(m[1]); 
   }
 
-  // --- START MODIFICATION ---
-  // Added "Net amount" regex from Prosecco PDF [cite: 235]
   const totalFeesMatch = text.match(
     /(Net\s+amount)[^£\d]{0,20}([£]?[\d,]+(?:\.\d{1,2})?)/i
   ) || text.match(
     /(total\s+fees|fees\s+total|grand\s+total)[^£\d]{0,20}([£]?[\d,]+(?:\.\d{1,2})?)/i
   );
-  // --- END MODIFICATION ---
   const currentFeesMonthly = totalFeesMatch ? money(totalFeesMatch[2]) : null;
 
-  const amex = text.match(
-    /(amex|american express)[^£\d]{0,20}([£]?[\d,]+(?:\.\d{1,2})?)/i
-  );
-  const amexTurnover = amex ? money(amex[2]) : 0;
+  // --- START MODIFICATION ---
+  // This regex now finds the *next* currency amount after "amex" or "american express"
+  const amexRegex = /(amex|american express)[\s\S]*?([£][\d,]+\.\d{2})/i;
+  const amexMatch = text.match(amexRegex);
+  const amexTurnover = amexMatch ? money(amexMatch[2]) : 0;
+  // --- END MODIFICATION ---
+  
   const other = Math.max(0, monthTurnover - amexTurnover);
 
   const mix = {
@@ -131,7 +128,6 @@ export async function extractGeneric(file: Blob) {
     currentFeesMonthly != null,
   ].filter(Boolean).length;
 
-  // Calculate confidence. If we found all 4 key values, confidence will be 1.
   const confidence = Math.min(1, present / 4);
 
   return {

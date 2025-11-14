@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { extractFromFile } from '@/lib/providers'
-// --- START MODIFICATION ---
 import { priceCMQ, computeSavings, pickTier, QuoteInputs } from '@/lib/pricing'
 import { RATES } from '@/config/rates'
-// --- END MODIFICATION ---
 
 export const runtime = 'nodejs'
 
@@ -24,9 +22,9 @@ export async function POST(req: NextRequest){
 
   // Specific parsed values logging
   console.log("Parsed values:", { 
-    monthTurnover: monthTurnover, //
-    currentFees: currentFeesMonthly, //
-    txCount: txCount //
+    monthTurnover: monthTurnover,
+    currentFees: currentFeesMonthly,
+    txCount: txCount
   });
 
   // Fallback logic/validation
@@ -39,16 +37,20 @@ export async function POST(req: NextRequest){
   
 
   const pricingInput: QuoteInputs = { monthTurnover:fields.monthTurnover, mix:fields.mix, currentFeesMonthly:fields.currentFeesMonthly, currentFixedMonthly:fields.currentFixedMonthly, terminalOption:terminalOption as any, terminalsCount }
+  
+  // --- START MODIFICATION ---
+  // This logic is now duplicated, but 'tier' is needed for logging
+  const tier = pickTier(RATES, pricingInput.monthTurnover);
+  console.log("selected tier:", tier.name); // Log the selected tier name 
+  // --- END MODIFICATION ---
+
   const { cmqMonthly, oneOff } = priceCMQ(pricingInput)
   const { monthlySaving, annualSaving } = computeSavings(pricingInput)
 
-  // --- START MODIFICATION ---
-  // Determine pricing tier and qualified rates per CMQ_Email_Dev_Instructions_v2 [cite: 151-201]
-  const tier = pickTier(RATES, pricingInput.monthTurnover);
   let pricingTier = "C"; // Default to High Volume
   let qualifiedRates: any = {};
 
-  if (tier.turnover_max === 15000) { // Tier A [cite: 85-88]
+  if (tier.turnover_max === 15000) { // Tier A
     pricingTier = "A";
     qualifiedRates = {
       headline: "Based on your turnover, you qualify for our simple flat rate:",
@@ -60,7 +62,7 @@ export async function POST(req: NextRequest){
       amexRate: null, // Covered by simpleAllCardsRate
       authFee: tier.rates.auth_fee
     };
-  } else if (tier.turnover_max === 30000) { // Tier B [cite: 89-103]
+  } else if (tier.turnover_max === 30000) { // Tier B
     pricingTier = "B";
     qualifiedRates = {
       headline: "Based on your turnover, you qualify for our mid-volume pricing:",
@@ -72,7 +74,7 @@ export async function POST(req: NextRequest){
       amexRate: tier.rates.amex_pct,
       authFee: tier.rates.auth_fee
     };
-  } else { // Tier C [cite: 105-119]
+  } else { // Tier C
     pricingTier = "C";
     qualifiedRates = {
       headline: "Based on your turnover, you qualify for our high-volume pricing:",
@@ -86,7 +88,6 @@ export async function POST(req: NextRequest){
     };
   }
 
-  // Added 'currentMonthly', 'pricingTier', and 'qualifiedRates' to the quote object
   return NextResponse.json({ 
     providerGuess:fields.providerGuess, 
     confidence:fields.confidence, 
@@ -102,5 +103,4 @@ export async function POST(req: NextRequest){
       qualifiedRates: qualifiedRates
     } 
   })
-  // --- END MODIFICATION ---
 }
