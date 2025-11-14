@@ -38,6 +38,7 @@ const emailTemplate = `
     <li><strong>Total monthly cost: £{{cmqMonthly}}</strong></li>
   </ul>
   <h3 style="margin-top: 30px;">Your card machine options</h3>
+  <img src="https://cardmachine.vercel.app/1.jpg" alt="Card machine" style="max-width:100%; border-radius:12px; margin:12px 0;" />
   <ul>
     <li>£20/month (12-month contract)</li>
     <li>£99 one-off buy-out</li>
