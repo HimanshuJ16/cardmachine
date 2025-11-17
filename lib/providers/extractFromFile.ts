@@ -356,106 +356,45 @@
 "use server";
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { extractText as unpdfExtractText } from "unpdf";
-import Tesseract from "tesseract.js";
 
-/* -------------------------------------------------------
- *  INIT GEMINI CLIENT
- * ----------------------------------------------------- */
+/* Init Gemini */
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const model = genAI.getGenerativeModel({
-  model: "gemini-2.0-flash",
-});
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-/* -------------------------------------------------------
- *  TYPES
- * ----------------------------------------------------- */
-export type ExtractedFields = {
-  providerGuess: string | null;
-  confidence: number;
-  monthTurnover: number;
-  mix: {
-    debitTurnover: number;
-    creditTurnover: number;
-    businessTurnover: number;
-    internationalTurnover: number;
-    amexTurnover: number;
-    txCount: number;
-  };
-  currentFeesMonthly: number | null;
-  currentFixedMonthly: number;
-  currency?: string;
-};
+export async function extractFromFile(file: Blob) {
+  // Convert file to Base64
+  const buffer = new Uint8Array(await file.arrayBuffer());
+  const base64 = Buffer.from(buffer).toString("base64");
 
-/* -------------------------------------------------------
- *  ENTRY FUNCTION
- * ----------------------------------------------------- */
-export async function extractFromFile(file: Blob): Promise<ExtractedFields> {
-  const buffer = new Uint8Array(await file.arrayBuffer()); // IMPORTANT for unpdf
-  const rawText = await extractText(buffer, file.type);
+  // Send PDF / Image directly to Gemini Vision
+  const result = await model.generateContent({
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            inlineData: {
+              data: base64,
+              mimeType: file.type, // pdf, png, jpg
+            },
+          },
+          {
+            text: extractionPrompt,
+          },
+        ],
+      },
+    ],
+  });
 
-  const fields = await extractUsingGemini(rawText);
-
-  return normalizeExtracted(fields);
+  // Parse JSON output
+  const raw = result.response.text().trim();
+  const clean = raw.replace(/```json|```/g, "");
+  return JSON.parse(clean);
 }
 
-/* -------------------------------------------------------
- *  TEXT EXTRACTION HANDLER
- * ----------------------------------------------------- */
-async function extractText(buffer: Uint8Array, mime: string): Promise<string> {
-  try {
-    if (mime.includes("pdf")) return await extractFromPDF(buffer);
-    return await extractFromImage(Buffer.from(buffer));
-  } catch (err) {
-    console.error("Text extraction failed:", err);
-    return "";
-  }
-}
-
-/* -------------------------------------------------------
- *  PDF TO TEXT (UNPDF)
- * ----------------------------------------------------- */
-async function extractFromPDF(buffer: Uint8Array): Promise<string> {
-  try {
-    const result: any = await unpdfExtractText(buffer);
-
-    let text = "";
-
-    if (!result) text = "";
-    else if (typeof result === "string") text = result;
-    else if (typeof result.text === "string") text = result.text;
-    else if (Array.isArray(result.pages)) text = result.pages.join(" ");
-    else if (Array.isArray(result)) text = result.join(" ");
-    else text = JSON.stringify(result);
-
-    return text.trim();
-  } catch (err) {
-    console.error("UNPDF extraction error:", err);
-    return "";
-  }
-}
-
-/* -------------------------------------------------------
- *  OCR FOR IMAGE FILES
- * ----------------------------------------------------- */
-async function extractFromImage(buffer: Buffer): Promise<string> {
-  try {
-    const result = await Tesseract.recognize(buffer, "eng");
-    return result.data.text || "";
-  } catch (err) {
-    console.error("OCR extraction error:", err);
-    return "";
-  }
-}
-
-/* -------------------------------------------------------
- *  GEMINI AI EXTRACTION
- * ----------------------------------------------------- */
-async function extractUsingGemini(text: string): Promise<any> {
-  const prompt = `
-Extract the following fields from the merchant card processing statement.
-
-Return ONLY valid JSON exactly in this format:
+// Prompt for structured output
+const extractionPrompt = `
+Extract the following fields from the statement and return ONLY valid JSON:
 
 {
   "providerGuess": string | null,
@@ -474,96 +413,5 @@ Return ONLY valid JSON exactly in this format:
   "currency": string
 }
 
-RULES:
-- Use the current billing period only (monthly).
-- Ignore annual summaries unless no monthly data exists.
-- If mix missing, apply fallback:
-    amexTurnover = extracted or 0
-    other = monthTurnover - amexTurnover
-    debitTurnover = creditTurnover = other * 0.5
-    businessTurnover = 0
-    internationalTurnover = 0
-    txCount = total txCount
-
-TEXT TO ANALYSE:
-----------------
-${text}
+The statement is a PDF or image. Read every detail carefully.
 `;
-
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const raw = response.text();
-
-    // Some Gemini responses wrap JSON inside markdown — remove fences
-    const clean = raw.replace(/```json|```/g, "").trim();
-
-    return JSON.parse(clean);
-  } catch (err) {
-    console.error("Gemini extraction error:", err);
-
-    return {
-      providerGuess: null,
-      confidence: 0,
-      monthTurnover: 0,
-      currentFeesMonthly: 0,
-      currentFixedMonthly: 0,
-      mix: {
-        debitTurnover: 0,
-        creditTurnover: 0,
-        businessTurnover: 0,
-        internationalTurnover: 0,
-        amexTurnover: 0,
-        txCount: 0,
-      },
-      currency: "GBP",
-    };
-  }
-}
-
-/* -------------------------------------------------------
- *  NORMALIZE OUTPUT
- * ----------------------------------------------------- */
-function normalizeExtracted(input: any): ExtractedFields {
-  const turnover = Number(input.monthTurnover || 0);
-  const amex = Number(input.mix?.amexTurnover || 0);
-  const tx = Number(input.mix?.txCount || 0);
-
-  const needsFallback =
-    !input.mix ||
-    (!input.mix.debitTurnover && !input.mix.creditTurnover);
-
-  let mix;
-
-  if (needsFallback) {
-    const other = turnover - amex;
-
-    mix = {
-      debitTurnover: other * 0.5,
-      creditTurnover: other * 0.5,
-      businessTurnover: 0,
-      internationalTurnover: 0,
-      amexTurnover: amex,
-      txCount: tx,
-    };
-  } else {
-    mix = {
-      debitTurnover: Number(input.mix.debitTurnover || 0),
-      creditTurnover: Number(input.mix.creditTurnover || 0),
-      businessTurnover: Number(input.mix.businessTurnover || 0),
-      internationalTurnover: Number(input.mix.internationalTurnover || 0),
-      amexTurnover: Number(input.mix.amexTurnover || 0),
-      txCount: Number(input.mix.txCount || 0),
-    };
-  }
-
-  return {
-    providerGuess: input.providerGuess ?? null,
-    confidence: Number(input.confidence ?? 0.9),
-    monthTurnover: turnover,
-    currentFeesMonthly: Number(input.currentFeesMonthly || 0),
-    currentFixedMonthly: Number(input.currentFixedMonthly || 0),
-    mix,
-    currency: input.currency || "GBP",
-  };
-}
