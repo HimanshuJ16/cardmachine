@@ -1,8 +1,10 @@
+import Navbar from '@/components/Navbar'
 import React from 'react'
 
 export default function PrivacyPage() {
   return (
-    <main className="max-w-4xl mx-auto px-6 py-12">
+    <main className="max-w-4xl mx-auto px-6 pb-12">
+      <Navbar />
       <h1 className="text-3xl font-bold mb-6">Privacy Policy - CardMachineQuote.com</h1>
       <div className="space-y-6 prose">
         <p>EFG Group Ltd t/a CardMachine Quote.com ("we", "us", "our") is committed to protecting your privacy and ensuring that your personal data is handled safely, securely, and transparently.</p>
