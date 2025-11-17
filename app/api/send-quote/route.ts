@@ -4,8 +4,6 @@ import { priceCMQ, QuoteInputs } from '@/lib/pricing'
 
 export const runtime = 'nodejs'
 
-// --- START MODIFICATION ---
-// Added {{qualifiedRatesHtml}} placeholder below the cost breakdown
 const emailTemplate = `
 <div style="font-family: Arial, Helvetica, sans-serif; color: #111; max-width: 650px; margin:0 auto;">
   <h2>Your CardMachineQuote.com Savings Report</h2>
@@ -63,73 +61,96 @@ const emailTemplate = `
   </div>
 </div>
 `
-// --- END MODIFICATION ---
 
-export async function POST(req: NextRequest){
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { email, customerName, analysePayload, terminalOption } = body
-    if(!email || !analysePayload) return NextResponse.json({error:'Missing fields'},{status:400})
 
-    // 1. Re-run pricing to get fee breakdown
-    const pricingInput: QuoteInputs = { 
-      monthTurnover: analysePayload.fields.monthTurnover, 
-      mix: analysePayload.fields.mix, 
-      currentFeesMonthly: analysePayload.fields.currentFeesMonthly, 
-      currentFixedMonthly: analysePayload.fields.currentFixedMonthly, 
-      terminalOption: terminalOption || 'none', 
-      terminalsCount: 1 // Assuming 1 terminal, as count is not passed here
+    if (!email || !analysePayload)
+      return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+
+    // 1. Pricing calculation
+    const pricingInput: QuoteInputs = {
+      monthTurnover: analysePayload.fields.monthTurnover,
+      mix: analysePayload.fields.mix,
+      currentFeesMonthly: analysePayload.fields.currentFeesMonthly,
+      currentFixedMonthly: analysePayload.fields.currentFixedMonthly,
+      terminalOption: terminalOption || 'none',
+      terminalsCount: 1
     }
+
     const { cmqMonthly, cmqTxnFees, cmqAuthFees } = priceCMQ(pricingInput)
-    
-    // 2. Get other values for template
-    const { monthlySaving, annualSaving, qualifiedRates } = analysePayload.quote; // Get new rates object
-    const currentMonthly = analysePayload.fields.currentFeesMonthly ?? 0;
-    const currentTerminalFees = analysePayload.fields.currentFixedMonthly ?? 0;
-    const currentTxnFees = Math.max(0, currentMonthly - currentTerminalFees);
-    const currentOtherFees = 0; // Assumption
-    const calendlyUrl = process.env.NEXT_PUBLIC_CALENDLY_URL || '';
 
-    // --- START MODIFICATION ---
-    // 3. Build Qualified Rates HTML from spec [cite: 202-227]
-    let ratesListHtml = '';
-    if (qualifiedRates.simpleAllCardsRate) {
-      ratesListHtml += `<li>All cards: <strong>${qualifiedRates.simpleAllCardsRate}%</strong></li>`;
+    const { monthlySaving, annualSaving, qualifiedRates } =
+      analysePayload.quote
+
+    const currentMonthly = analysePayload.fields.currentFeesMonthly ?? 0
+    const currentTerminalFees = analysePayload.fields.currentFixedMonthly ?? 0
+    const currentTxnFees = Math.max(0, currentMonthly - currentTerminalFees)
+    const currentOtherFees = 0
+    const calendlyUrl = process.env.NEXT_PUBLIC_CALENDLY_URL || ''
+
+    // -----------------------------------------
+    //  SAFE RATE FALLBACKS (THIS FIXES YOUR ERROR)
+    // -----------------------------------------
+    const safeRates = {
+      simpleAllCardsRate: qualifiedRates?.simpleAllCardsRate ?? null,
+      debitRate: qualifiedRates?.debitRate ?? null,
+      creditRate: qualifiedRates?.creditRate ?? null,
+      businessRate: qualifiedRates?.businessRate ?? null,
+      internationalRate: qualifiedRates?.internationalRate ?? null,
+      amexRate: qualifiedRates?.amexRate ?? null,
+      authFee: qualifiedRates?.authFee ?? 0,
+      headline:
+        qualifiedRates?.headline ??
+        'Based on your turnover, here are your CMQ rates:'
     }
-    if (qualifiedRates.debitRate) {
-      ratesListHtml += `<li>Debit cards: <strong>${qualifiedRates.debitRate}%</strong></li>`;
-    }
-    if (qualifiedRates.creditRate) {
-      ratesListHtml += `<li>Credit cards: <strong>${qualifiedRates.creditRate}%</strong></li>`;
-    }
-    if (qualifiedRates.businessRate) {
-      ratesListHtml += `<li>Business / corporate cards: <strong>${qualifiedRates.businessRate}%</strong></li>`;
-    }
-    if (qualifiedRates.internationalRate) {
-      ratesListHtml += `<li>International cards: <strong>${qualifiedRates.internationalRate}%</strong></li>`;
-    }
-    if (qualifiedRates.amexRate && !qualifiedRates.simpleAllCardsRate) {
-      ratesListHtml += `<li>Amex: <strong>${qualifiedRates.amexRate}%</strong></li>`;
-    }
-    
-    ratesListHtml += `<li>Authorisation fee: <strong>£${qualifiedRates.authFee.toFixed(3)} per transaction</strong></li>`;
-    ratesListHtml += `<li>PCI fees: <strong>£0</strong></li>`;
-    ratesListHtml += `<li>Minimum monthly fee: <strong>£0</strong></li>`;
-    ratesListHtml += `<li>Terminals: <strong>£20/month (12-month contract) or £99 buy-out</strong></li>`;
+
+    // -----------------------------------------
+    // BUILD THE QUALIFIED RATES HTML
+    // -----------------------------------------
+    let ratesListHtml = ''
+
+    if (safeRates.simpleAllCardsRate)
+      ratesListHtml += `<li>All cards: <strong>${safeRates.simpleAllCardsRate}%</strong></li>`
+
+    if (safeRates.debitRate)
+      ratesListHtml += `<li>Debit cards: <strong>${safeRates.debitRate}%</strong></li>`
+
+    if (safeRates.creditRate)
+      ratesListHtml += `<li>Credit cards: <strong>${safeRates.creditRate}%</strong></li>`
+
+    if (safeRates.businessRate)
+      ratesListHtml += `<li>Business cards: <strong>${safeRates.businessRate}%</strong></li>`
+
+    if (safeRates.internationalRate)
+      ratesListHtml += `<li>International cards: <strong>${safeRates.internationalRate}%</strong></li>`
+
+    if (safeRates.amexRate && !safeRates.simpleAllCardsRate)
+      ratesListHtml += `<li>Amex: <strong>${safeRates.amexRate}%</strong></li>`
+
+    ratesListHtml += `<li>Authorisation fee: <strong>£${safeRates.authFee.toFixed(
+      3
+    )} per transaction</strong></li>`
+    ratesListHtml += `<li>PCI fees: <strong>£0</strong></li>`
+    ratesListHtml += `<li>Minimum monthly fee: <strong>£0</strong></li>`
+    ratesListHtml += `<li>Terminals: <strong>£20/month or £99 buy-out</strong></li>`
 
     const qualifiedRatesHtml = `
-    <h3 style="margin-top: 30px;">Your qualified CardMachineQuote.com rates</h3>
-    <p style="margin:6px 0; font-size: 14px; color:#333;">
-      ${qualifiedRates.headline}
-    </p>
-    <ul style="margin: 4px 0 14px 18px; padding:0; font-size:14px; color:#333;">
-      ${ratesListHtml}
-    </ul>
-    `;
-    // --- END MODIFICATION ---
+      <h3 style="margin-top: 30px;">Your qualified CardMachineQuote.com rates</h3>
+      <p style="margin:6px 0; font-size: 14px; color:#333;">
+        ${safeRates.headline}
+      </p>
+      <ul style="margin: 4px 0 14px 18px; padding:0; font-size:14px; color:#333;">
+        ${ratesListHtml}
+      </ul>
+    `
 
+    // -----------------------------------------
+    // MERGE INTO EMAIL TEMPLATE
+    // -----------------------------------------
 
-    // 4. Populate HTML template
     let htmlBody = emailTemplate
       .replace(/{{currentMonthly}}/g, currentMonthly.toFixed(2))
       .replace(/{{cmqMonthly}}/g, cmqMonthly.toFixed(2))
@@ -141,19 +162,20 @@ export async function POST(req: NextRequest){
       .replace(/{{cmqTxnFees}}/g, cmqTxnFees.toFixed(2))
       .replace(/{{cmqAuthFees}}/g, cmqAuthFees.toFixed(2))
       .replace(/{{calendlyUrl}}/g, calendlyUrl)
-      // --- START MODIFICATION ---
-      .replace(/{{qualifiedRatesHtml}}/g, qualifiedRatesHtml); // Inject new HTML block
-      // --- END MODIFICATION ---
+      .replace(/{{qualifiedRatesHtml}}/g, qualifiedRatesHtml)
 
-    // 5. Send the HTML email
+    // Send email
     await sendEmail({
       to: email,
       subject: 'Your CardMachineQuote.com savings quote',
       html: htmlBody
     })
 
-    return NextResponse.json({ ok:true })
-  } catch (e:any) {
-    return NextResponse.json({ error: e?.message || 'Unexpected error' }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message || 'Unexpected error' },
+      { status: 500 }
+    )
   }
 }

@@ -108,14 +108,6 @@ export default function Page() {
         </div>
       </section>
 
-      <section className="border-y">
-        <div className="max-w-6xl mx-auto px-6 py-6 grid sm:grid-cols-3 gap-4 text-sm text-gray-700">
-          <div><span className="font-semibold text-gray-900">Fast answers</span> — instant estimate on upload</div>
-          <div><span className="font-semibold text-gray-900">Transparent pricing</span> — one clear breakdown</div>
-          <div><span className="font-semibold text-gray-900">UK support</span> — book a callback in minutes</div>
-        </div>
-      </section>
-
       <section className="max-w-6xl mx-auto px-6 py-10">
         {data ? (
           <>
@@ -135,6 +127,15 @@ export default function Page() {
         ) : (
           <div className="text-center text-gray-600">Your estimate will appear here after you upload a statement.</div>
         )}
+      </section>
+
+      
+      <section className="border-y">
+        <div className="max-w-6xl mx-auto px-6 py-6 grid sm:grid-cols-3 gap-4 text-sm text-gray-700">
+          <div><span className="font-semibold text-gray-900">Fast answers</span> — instant estimate on upload</div>
+          <div><span className="font-semibold text-gray-900">Transparent pricing</span> — one clear breakdown</div>
+          <div><span className="font-semibold text-gray-900">UK support</span> — book a callback in minutes</div>
+        </div>
       </section>
 
       <section className="bg-gray-50">
