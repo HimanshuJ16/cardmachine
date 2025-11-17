@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/email'
-import { priceCMQ, QuoteInputs } from '@/lib/pricing'
+// We no longer need priceCMQ as the calculations are passed in the payload
+// import { priceCMQ, QuoteInputs } from '@/lib/pricing' 
 
 export const runtime = 'nodejs'
 
@@ -65,93 +66,68 @@ const emailTemplate = `
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { email, customerName, analysePayload, terminalOption } = body
+    const { email, analysePayload } = body
 
-    if (!email || !analysePayload)
+    if (!email || !analysePayload) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
-
-    // 1. Pricing calculation
-    const pricingInput: QuoteInputs = {
-      monthTurnover: analysePayload.fields.monthTurnover,
-      mix: analysePayload.fields.mix,
-      currentFeesMonthly: analysePayload.fields.currentFeesMonthly,
-      currentFixedMonthly: analysePayload.fields.currentFixedMonthly,
-      terminalOption: terminalOption || 'none',
-      terminalsCount: 1
     }
 
-    const { cmqMonthly, cmqTxnFees, cmqAuthFees } = priceCMQ(pricingInput)
+    // 1. Extract Data from the new Payload Structure
+    // The frontend passes the full JSON response from /api/analyse, which is { status: 'ok', result: SavingsResult }
+    // We handle both the wrapper and direct object just in case
+    const data = analysePayload.result || analysePayload
 
-    const { monthlySaving, annualSaving, qualifiedRates } =
-      analysePayload.quote
-
-    const currentMonthly = analysePayload.fields.currentFeesMonthly ?? 0
-    const currentTerminalFees = analysePayload.fields.currentFixedMonthly ?? 0
-    const currentTxnFees = Math.max(0, currentMonthly - currentTerminalFees)
-    const currentOtherFees = 0
-    const calendlyUrl = process.env.NEXT_PUBLIC_CALENDLY_URL || ''
-
-    // -----------------------------------------
-    //  SAFE RATE FALLBACKS (THIS FIXES YOUR ERROR)
-    // -----------------------------------------
-    const safeRates = {
-      simpleAllCardsRate: qualifiedRates?.simpleAllCardsRate ?? null,
-      debitRate: qualifiedRates?.debitRate ?? null,
-      creditRate: qualifiedRates?.creditRate ?? null,
-      businessRate: qualifiedRates?.businessRate ?? null,
-      internationalRate: qualifiedRates?.internationalRate ?? null,
-      amexRate: qualifiedRates?.amexRate ?? null,
-      authFee: qualifiedRates?.authFee ?? 0,
-      headline:
-        qualifiedRates?.headline ??
-        'Based on your turnover, here are your CMQ rates:'
+    // Check if we have valid data
+    if (!data || typeof data.newMonthlyCost === 'undefined') {
+      return NextResponse.json({ error: 'Invalid data format in payload' }, { status: 400 })
     }
 
-    // -----------------------------------------
-    // BUILD THE QUALIFIED RATES HTML
-    // -----------------------------------------
+    // 2. Map SavingsResult fields to Template Variables
+    const currentMonthly = data.currentMonthlyCost || 0
+    const currentTxnFees = data.currentTransactionFees || 0
+    const currentTerminalFees = data.currentTerminalFees || 0
+    const currentOtherFees = data.currentOtherFees || 0
+    
+    const cmqMonthly = data.newMonthlyCost || 0
+    const cmqTxnFees = data.cmqTransactionFees || 0
+    const cmqAuthFees = data.cmqAuthFees || 0
+    
+    const monthlySaving = data.monthlySaving || 0
+    const annualSaving = data.annualSaving || 0
+
+    const calendlyUrl = process.env.NEXT_PUBLIC_CALENDLY_URL || 'https://calendly.com'
+
+    // 3. Build Qualified Rates HTML
+    // Using the matched rates from the result object
+    const debitRate = data.matchedDebitRate || 0
+    const creditRate = data.matchedCreditRate || 0
+    const otherRate = data.matchedOtherRate || 0
+    const authFee = data.authFee || 0
+    const terminalFee = data.terminalFee || 0
+
     let ratesListHtml = ''
-
-    if (safeRates.simpleAllCardsRate)
-      ratesListHtml += `<li>All cards: <strong>${safeRates.simpleAllCardsRate}%</strong></li>`
-
-    if (safeRates.debitRate)
-      ratesListHtml += `<li>Debit cards: <strong>${safeRates.debitRate}%</strong></li>`
-
-    if (safeRates.creditRate)
-      ratesListHtml += `<li>Credit cards: <strong>${safeRates.creditRate}%</strong></li>`
-
-    if (safeRates.businessRate)
-      ratesListHtml += `<li>Business cards: <strong>${safeRates.businessRate}%</strong></li>`
-
-    if (safeRates.internationalRate)
-      ratesListHtml += `<li>International cards: <strong>${safeRates.internationalRate}%</strong></li>`
-
-    if (safeRates.amexRate && !safeRates.simpleAllCardsRate)
-      ratesListHtml += `<li>Amex: <strong>${safeRates.amexRate}%</strong></li>`
-
-    ratesListHtml += `<li>Authorisation fee: <strong>£${safeRates.authFee.toFixed(
-      3
-    )} per transaction</strong></li>`
+    
+    if (debitRate > 0) ratesListHtml += `<li>Debit cards: <strong>${debitRate.toFixed(2)}%</strong></li>`
+    if (creditRate > 0) ratesListHtml += `<li>Credit cards: <strong>${creditRate.toFixed(2)}%</strong></li>`
+    if (otherRate > 0) ratesListHtml += `<li>International/Comm: <strong>${otherRate.toFixed(2)}%</strong></li>`
+    
+    ratesListHtml += `<li>Authorisation fee: <strong>£${authFee.toFixed(3)} per transaction</strong></li>`
     ratesListHtml += `<li>PCI fees: <strong>£0</strong></li>`
     ratesListHtml += `<li>Minimum monthly fee: <strong>£0</strong></li>`
-    ratesListHtml += `<li>Terminals: <strong>£20/month or £99 buy-out</strong></li>`
+    ratesListHtml += `<li>Terminal fee: <strong>£${terminalFee.toFixed(2)}</strong></li>`
 
     const qualifiedRatesHtml = `
       <h3 style="margin-top: 30px;">Your qualified CardMachineQuote.com rates</h3>
       <p style="margin:6px 0; font-size: 14px; color:#333;">
-        ${safeRates.headline}
+        Based on your statement volume, you qualify for our standard tier:
       </p>
       <ul style="margin: 4px 0 14px 18px; padding:0; font-size:14px; color:#333;">
         ${ratesListHtml}
       </ul>
     `
 
-    // -----------------------------------------
-    // MERGE INTO EMAIL TEMPLATE
-    // -----------------------------------------
-
-    let htmlBody = emailTemplate
+    // 4. Merge into Email Template
+    const htmlBody = emailTemplate
       .replace(/{{currentMonthly}}/g, currentMonthly.toFixed(2))
       .replace(/{{cmqMonthly}}/g, cmqMonthly.toFixed(2))
       .replace(/{{monthlySaving}}/g, monthlySaving.toFixed(2))
@@ -164,7 +140,7 @@ export async function POST(req: NextRequest) {
       .replace(/{{calendlyUrl}}/g, calendlyUrl)
       .replace(/{{qualifiedRatesHtml}}/g, qualifiedRatesHtml)
 
-    // Send email
+    // 5. Send email
     await sendEmail({
       to: email,
       subject: 'Your CardMachineQuote.com savings quote',
@@ -173,6 +149,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true })
   } catch (e: any) {
+    console.error('Send quote error:', e)
     return NextResponse.json(
       { error: e?.message || 'Unexpected error' },
       { status: 500 }

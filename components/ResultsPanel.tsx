@@ -1,18 +1,18 @@
 import React from 'react'
 
-// --- START MODIFICATION ---
-// Replaced entire component with the new spec [cite: 119-145]
-// (and corrected typos from the spec)
-
 export default function ResultsPanel({ data }: { data: any }) {
-  if (!data || !data.quote) return null
+  // 1. Update the check to look for 'result' instead of 'quote'
+  // The new API response format is: { status: 'ok', result: { ... } }
+  if (!data || !data.result) return null
 
-  const q = data.quote
+  // 2. Extract the result object
+  const r = data.result
 
-  const current = q.currentMonthly ?? 0
-  const cmq = q.cmqMonthly ?? 0
-  const monthlySaving = q.monthlySaving ?? (current - cmq)
-  const annualSaving = q.annualSaving ?? monthlySaving * 12
+  // 3. Map the fields from the new 'SavingsResult' shape (defined in the PDF)
+  const current = r.currentMonthlyCost ?? 0
+  const newCost = r.newMonthlyCost ?? 0
+  const monthlySaving = r.monthlySaving ?? 0
+  const annualSaving = r.annualSaving ?? 0
 
   return (
     <div className="max-w-3xl mx-auto bg-[#5170ff10] border border-gray-200 rounded-2xl p-6 shadow-sm">
@@ -27,7 +27,7 @@ export default function ResultsPanel({ data }: { data: any }) {
         </div>
         <div className="flex justify-between">
           <dt className="font-medium">New monthly cost</dt>
-          <dd>£{cmq.toFixed(2)}</dd>
+          <dd>£{newCost.toFixed(2)}</dd>
         </div>
         <div className="flex justify-between text-green-700">
           <dt className="font-medium">Monthly saving</dt>
@@ -41,4 +41,3 @@ export default function ResultsPanel({ data }: { data: any }) {
     </div>
   )
 }
-// --- END MODIFICATION ---
