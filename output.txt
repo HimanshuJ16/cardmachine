@@ -1,0 +1,137 @@
+PS C:\Users\Himanshu Jangir\Desktop\uk project\pdf-parser> npm run dev
+
+> pdf-parser@0.1.0 dev
+> next dev
+
+   ▲ Next.js 16.0.3 (Turbopack)
+   - Local:         http://localhost:3000
+   - Network:       http://192.168.1.6:3000
+   - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 959ms
+ ○ Compiling / ...
+ GET / 200 in 7.0s (compile: 6.6s, render: 467ms)
+ ○ Compiling /api/analyse ...
+AI extracted fields: {
+  monthTurnover: 25588.61,
+  currentFeesMonthly: 385.15,
+  currentFixedMonthly: 60,
+  providerGuess: 'Paymentsense',
+  mix: {
+    debitTurnover: 11204.24,
+    creditTurnover: 5995.57,
+    businessTurnover: 850.51,
+    internationalTurnover: 515.96,
+    amexTurnover: 7538.29,
+    txCount: 511
+  }
+}
+--- PRICING CALCULATION ---
+turnover: 25588.61
+txCount: 511
+mscCost (variable): 238.75363100000004
+authCost (perTx): 12.775
+fixedCost (pci/mmf/terminal): 0
+final cmqMonthly: 251.52863100000005
+---------------------------
+ POST /api/analyse 200 in 12.5s (compile: 5.0s, render: 7.5s)
+ POST /api/send-quote 200 in 2.5s (compile: 321ms, render: 2.2s)
+ GET / 200 in 103ms (compile: 12ms, render: 91ms)
+AI extracted fields: {
+  monthTurnover: 31095.65,
+  currentFeesMonthly: 265.84,
+  currentFixedMonthly: 28.5,
+  providerGuess: 'Global Payments',
+  mix: {
+    debitTurnover: 24876.52,
+    creditTurnover: 5597.22,
+    businessTurnover: 621.91,
+    internationalTurnover: 0,
+    amexTurnover: 0,
+    txCount: 2816
+  }
+}
+--- PRICING CALCULATION ---
+turnover: 31095.65
+txCount: 2816
+mscCost (variable): 97.64030500000001
+authCost (perTx): 70.4
+fixedCost (pci/mmf/terminal): 0
+final cmqMonthly: 168.04030500000002
+---------------------------
+ POST /api/analyse 200 in 9.4s (compile: 6ms, render: 9.4s)
+ GET / 200 in 91ms (compile: 8ms, render: 82ms)
+AI extracted fields: {
+  monthTurnover: 99784.4,
+  currentFeesMonthly: 417.72,
+  currentFixedMonthly: 35,
+  providerGuess: 'Elavon',
+  mix: {
+    debitTurnover: 79706.79,
+    creditTurnover: 17961.19,
+    businessTurnover: 0,
+    internationalTurnover: 0,
+    amexTurnover: 0,
+    txCount: 3312
+  }
+}
+--- PRICING CALCULATION ---
+turnover: 99784.4
+txCount: 3312
+mscCost (variable): 280.09233
+authCost (perTx): 82.80000000000001
+fixedCost (pci/mmf/terminal): 0
+final cmqMonthly: 362.89233
+---------------------------
+ POST /api/analyse 200 in 10.1s (compile: 6ms, render: 10.1s)
+ GET / 200 in 93ms (compile: 10ms, render: 84ms)
+AI extracted fields: {
+  monthTurnover: 30908.04,
+  currentFeesMonthly: 361.66,
+  currentFixedMonthly: 150,
+  providerGuess: 'Dojo',
+  mix: {
+    debitTurnover: 18214.79,
+    creditTurnover: 9188.25,
+    businessTurnover: 1161.9,
+    internationalTurnover: 696.4,
+    amexTurnover: 2360.7,
+    txCount: 1074
+  }
+}
+--- PRICING CALCULATION ---
+turnover: 30908.04
+txCount: 1074
+mscCost (variable): 164.52398000000002
+authCost (perTx): 26.85
+fixedCost (pci/mmf/terminal): 0
+final cmqMonthly: 191.37398000000002
+---------------------------
+ POST /api/analyse 200 in 4.9s (compile: 7ms, render: 4.9s)
+ GET / 200 in 91ms (compile: 8ms, render: 82ms)
+AI extracted fields: {
+  monthTurnover: 190828.37,
+  currentFeesMonthly: 2451.43,
+  currentFixedMonthly: 180,
+  providerGuess: 'Paymentsense',
+  mix: {
+    debitTurnover: 136384.43,
+    creditTurnover: 24736.79,
+    businessTurnover: 10120.42,
+    internationalTurnover: 1409.64,
+    amexTurnover: 9881.49,
+    txCount: 8169
+  }
+}
+--- PRICING CALCULATION ---
+turnover: 190828.37
+txCount: 8169
+mscCost (variable): 839.164271
+authCost (perTx): 204.22500000000002
+fixedCost (pci/mmf/terminal): 0
+final cmqMonthly: 1043.389271
+---------------------------
+ POST /api/analyse 200 in 6.4s (compile: 4ms, render: 6.4s)
+ POST /api/send-quote 200 in 1919ms (compile: 6ms, render: 1913ms)
+ GET / 200 in 88ms (compile: 7ms, render: 82ms)

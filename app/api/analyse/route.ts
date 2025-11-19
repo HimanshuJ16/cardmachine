@@ -2,9 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { priceCMQ, computeSavings, pickTier, QuoteInputs } from "@/lib/pricing";
 import { RATES } from "@/config/rates";
-import { extractFromFile } from "@/lib/providers";
 import { sendEmail } from "@/lib/email";
 import { renderSavingsEmailHTML } from "@/lib/email-renderer";
+import { extractFromFile } from "@/lib/providers";
 
 export const runtime = "nodejs";
 
@@ -177,6 +177,7 @@ export async function POST(req: NextRequest) {
 
     await sendEmail({
       to: 'quotes@cardmachinequote.com',
+      // to: "himanshujangir16@gmail.com",
       subject: emailSubject,
       html: renderSavingsEmailHTML(result),
       attachments: [
