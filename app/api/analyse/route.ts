@@ -5,6 +5,41 @@ import { extractFromPdf, analyzeTextWithOpenAI } from "@/lib/providers";
 import { sendEmail } from "@/lib/email";
 import { renderSavingsEmailHTML } from "@/lib/email-renderer";
 
+// Defined per PDF spec
+export type SavingsResult = {
+  // Identification
+  businessName?: string;
+  userEmail?: string;
+  providerName?: string;
+
+  // Core savings numbers (per month)
+  currentMonthlyCost: number;
+  newMonthlyCost: number;
+  monthlySaving: number;
+  annualSaving: number;
+
+  // Breakdown current provider
+  currentTransactionFees: number;
+  currentTerminalFees: number;
+  currentOtherFees: number;
+
+  // Breakdown CardMachineQuote.com quote
+  cmqTransactionFees: number;
+  cmqAuthFees: number;
+  cmqOtherFees: number;
+
+  // Qualified rate tier (Meta)
+  matchedDebitRate: number;
+  matchedCreditRate: number;
+  matchedOtherRate: number;
+  terminalFee: number;
+  authFee: number;
+
+  // Status
+  parsingStatus: 'success' | 'failed';
+  manualRequired: boolean;
+};
+
 export const runtime = "nodejs";
 // export const maxDuration = 60;
 
