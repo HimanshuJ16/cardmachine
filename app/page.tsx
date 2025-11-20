@@ -40,8 +40,15 @@ export default function Page() {
     setStatusText('Analyzing...')
 
     try {
-      let res
-      
+      // Create FormData to send FILE + Optional Text
+      const form = new FormData()
+      form.append('file', f)
+      form.append('terminalOption', 'none')
+      form.append('terminalsCount', '1')
+      // Add these if you want to pass them from the upload stage
+      // form.append('businessName', name) 
+      // form.append('email', email)
+
       if (f.type.startsWith("image/")) {
         // --- OPTION A: IMAGE (Run OCR locally) ---
         console.log("Image detected. Running Client-Side OCR...")
@@ -49,28 +56,21 @@ export default function Page() {
         
         if (extractedText.length < 20) throw new Error("OCR failed: Image text not readable")
 
-        setStatusText("Analyzing data...")
+        // Append the text we extracted so the server doesn't have to
+        form.append('extractedText', extractedText)
         
-        res = await fetch('/api/analyse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: extractedText,
-            terminalOption: 'none',
-            terminalsCount: 1
-          })
-        })
+        setStatusText("Analyzing data...")
 
       } else {
-        // --- OPTION B: PDF (Send to Server) ---
+        // --- OPTION B: PDF (Just set status) ---
         setStatusText("Uploading PDF...")
-        const form = new FormData()
-        form.append('file', f)
-        form.append('terminalOption', 'none')
-        form.append('terminalsCount', '1')
-
-        res = await fetch('/api/analyse', { method: 'POST', body: form })
       }
+
+      // Send to API (Always Multipart/FormData now)
+      const res = await fetch('/api/analyse', { 
+        method: 'POST', 
+        body: form 
+      })
 
       const json = await res.json()
       

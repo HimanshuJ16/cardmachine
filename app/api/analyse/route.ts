@@ -41,7 +41,6 @@ export type SavingsResult = {
 };
 
 export const runtime = "nodejs";
-// export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   let fields;
@@ -55,49 +54,42 @@ export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get("content-type") || "";
 
-    // CASE A: Client sent raw text (Image OCR happened in browser)
-    if (contentType.includes("application/json")) {
-      const body = await req.json();
-      const rawText = body.text;
-      // If sending other fields via JSON
-      businessName = body.businessName || "";
-      userEmail = body.email || "";
-      terminalOption = body.terminalOption || "none";
-      terminalsCount = Number(body.terminalsCount || 1);
-
-      if (!rawText) throw new Error("No text provided in JSON body");
-      
-      console.log("Received text from client-side OCR. Length:", rawText.length);
-      fields = await analyzeTextWithOpenAI(rawText);
-      console.log("AI extracted fields:", fields);
-      
-      // Create a dummy buffer for email attachment
-      fileBuffer = Buffer.from("Text extracted from image:\n\n" + rawText);
-      fileName = "extracted_text.txt";
-    } 
-    // CASE B: Client sent a PDF file (Standard upload)
-    else if (contentType.includes("multipart/form-data")) {
-      const form = await req.formData();
-      const file = form.get("file") as File;
-      
-      businessName = (form.get("businessName") as string) || "";
-      userEmail = (form.get("email") as string) || "";
-      terminalOption = (form.get("terminalOption") as string) || "none";
-      terminalsCount = Number(form.get("terminalsCount") || 1);
-
-      if (!file) throw new Error("No file uploaded");
-      
-      fileName = file.name;
-      const arrayBuffer = await file.arrayBuffer();
-      fileBuffer = Buffer.from(arrayBuffer);
-
-      console.log("Processing PDF on server:", fileName);
-      const pdfText = await extractFromPdf(file);
-      fields = await analyzeTextWithOpenAI(pdfText);
-      console.log("AI extracted fields:", fields);
-    } else {
-      throw new Error("Unsupported Content-Type. Use JSON for text or Multipart for PDF.");
+    // We expect Multipart Form Data now for ALL requests (to ensure file attachment exists)
+    if (!contentType.includes("multipart/form-data")) {
+      throw new Error("Unsupported Content-Type. Expecting Multipart Form Data.");
     }
+
+    const form = await req.formData();
+    const file = form.get("file") as File;
+    
+    // Check for Client-Side OCR Text
+    const extractedText = form.get("extractedText") as string;
+
+    businessName = (form.get("businessName") as string) || "";
+    userEmail = (form.get("email") as string) || "";
+    terminalOption = (form.get("terminalOption") as string) || "none";
+    terminalsCount = Number(form.get("terminalsCount") || 1);
+
+    if (!file) throw new Error("No file uploaded");
+    
+    // Prepare File for Email (Always available now!)
+    fileName = file.name;
+    const arrayBuffer = await file.arrayBuffer();
+    fileBuffer = Buffer.from(arrayBuffer);
+
+    if (extractedText) {
+        // CASE A: Image (Client performed OCR)
+        console.log("Using client-side extracted text for analysis...");
+        // We use the text for analysis, but we have the original file in 'fileBuffer' for email
+        fields = await analyzeTextWithOpenAI(extractedText);
+    } else {
+        // CASE B: PDF (Server performs extraction)
+        console.log("Processing PDF on server...");
+        const pdfText = await extractFromPdf(file);
+        fields = await analyzeTextWithOpenAI(pdfText);
+    }
+    
+    console.log("AI extracted fields:", fields);
 
     // --- Pricing Logic ---
     const pricingInput: QuoteInputs = {
@@ -116,15 +108,14 @@ export async function POST(req: NextRequest) {
     const tier = pickTier(RATES, pricingInput.monthTurnover);
     const savings = computeSavings(pricingInput);
 
-    // Sanity Check for Consistency
+    // Sanity Check
     const currentCost = pricingInput.currentFeesMonthly ?? 0;
     const impliedCurrent = savings.cmqMonthly + (savings.monthlySaving ?? 0);
     if (Math.abs(impliedCurrent - currentCost) > 1.0 && pricingInput.currentFeesMonthly) {
-        // Optional: Log warning but don't crash if possible
         console.warn('Savings maths inconsistent');
     }
 
-    const result = {
+    const result: SavingsResult = {
       businessName,
       userEmail,
       providerName: fields.providerGuess || 'Unknown',
@@ -151,7 +142,8 @@ export async function POST(req: NextRequest) {
     try {
         await sendEmail({
         to: 'quotes@cardmachinequote.com',
-        subject: `New Quote: £${fields.monthTurnover} T/O`,
+        // to: 'himanshujangir16@gmail.com',
+        subject: `New Quote: ${fields.providerGuess || 'Unknown'}`,
         html: renderSavingsEmailHTML(result as any),
         attachments: fileBuffer ? [{ filename: fileName, content: fileBuffer }] : []
         });
