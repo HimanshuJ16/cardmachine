@@ -52,13 +52,17 @@ const emailTemplate = `
     <li><strong>Daily & instant payouts</strong> next-day 1am by default, or instant 24/7.</li>
   </ul>
   <div style="margin-top: 30px; text-align:center;">
+    <p style="margin-top:10px; color: #666; font-size:13px;">
+      Use the link belor to book a call at a time that suits you or sign up.
+    </p>
     <a href="{{calendlyUrl}}"
       style="background: #5170ff; color:#fff; padding: 14px 24px; border-radius:8px; text-decoration:none; display: inline-block; font-size:15px;">
       Book a Call
     </a>
-    <p style="margin-top:10px; color: #666; font-size:13px;">
-      Use the link above to book a call at a time that suits you.
-    </p>
+    <a href="https://cardmachinequote.com/order"
+      style="background: #5170ff; color:#fff; padding: 14px 24px; border-radius:8px; text-decoration:none; display: inline-block; font-size:15px;">
+      Sign Up
+    </a>
   </div>
 </div>
 `
