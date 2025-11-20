@@ -20,6 +20,9 @@ export default function Page() {
   const [sentOk, setSentOk] = React.useState<null | boolean>(null)
   const [error, setError] = React.useState<string>('')
 
+  // Helper to check if manual review is triggered
+  const isManualReview = data?.manualRequired === true
+
   async function performClientSideOCR(file: File): Promise<string> {
     setStatusText("Initializing OCR engine...")
     const worker = await createWorker("eng")
@@ -187,7 +190,7 @@ export default function Page() {
       </footer>
 
       {/* --------------------------------------------- */}
-      {/*              RESULTS POPUP MODAL              */}
+      {/* RESULTS POPUP MODAL              */}
       {/* --------------------------------------------- */}
       {data && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -203,89 +206,114 @@ export default function Page() {
             </button>
 
             <div className="p-6 md:p-10">
-              <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold text-gray-900">Analysis Complete</h2>
-                <p className="text-gray-600">Here is what we found from your statement.</p>
-              </div>
-
-              <div className="bg-[#5170ff10] border border-blue-100 rounded-2xl p-6 shadow-sm mb-8">
-                <h3 className="text-xl font-semibold text-gray-900 mb-1">Estimated savings</h3>
-                <p className="text-sm text-gray-600 mb-4">Based on the statement you uploaded and standard rates.</p>
-                
-                <dl className="space-y-3 text-sm text-gray-800">
-                  <div className="flex justify-between py-2 border-b border-blue-200/50">
-                    <dt className="font-medium">Current monthly cost</dt>
-                    <dd>£{data.currentMonthlyCost.toFixed(2)}</dd>
+              
+              {/* --- NEW LOGIC: Check for Manual Review Flag --- */}
+              {isManualReview ? (
+                <div className="flex flex-col items-center text-center py-10">
+                  <div className="w-20 h-20 bg-yellow-50 rounded-full flex items-center justify-center mb-6">
+                    <svg className="w-10 h-10 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
                   </div>
-                  <div className="flex justify-between py-2 border-b border-blue-200/50">
-                    <dt className="font-medium">New monthly cost</dt>
-                    <dd>£{data.newMonthlyCost.toFixed(2)}</dd>
-                  </div>
-                  <div className="flex justify-between py-2 text-green-700 font-semibold text-base">
-                    <dt>Monthly saving</dt>
-                    <dd>£{data.monthlySaving.toFixed(2)}</dd>
-                  </div>
-                  <div className="flex justify-between py-2 text-green-700 font-bold text-lg bg-green-50 rounded px-3 -mx-3">
-                    <dt>Annual saving</dt>
-                    <dd>£{data.annualSaving.toFixed(2)}</dd>
-                  </div>
-                </dl>
-              </div>
-
-              <div className="bg-gray-50 border rounded-2xl p-6 mb-6">
-                <h4 className="text-lg font-semibold mb-1">Email me my quote</h4>
-                <p className="text-sm text-gray-600 mb-4">We’ll send a one‑page PDF of your savings. No spam.</p>
-                
-                <div className="grid md:grid-cols-2 gap-3">
-                  <input 
-                    value={name} 
-                    onChange={e=>setName(e.target.value)} 
-                    placeholder="Business name (optional)" 
-                    className="border rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 outline-none" 
-                  />
-                  <input 
-                    value={email} 
-                    onChange={e=>setEmail(e.target.value)} 
-                    placeholder="Email address" 
-                    className="border rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 outline-none" 
-                  />
+                  <h2 className="text-2xl font-bold text-gray-900 mb-3">Unable to read statement</h2>
+                  <p className="text-gray-600 text-lg max-w-md mx-auto mb-8">
+                    We were unable to read the statement correctly. It has been passed to one of our team to review manually.
+                  </p>
+                  <button 
+                    onClick={closeModal}
+                    className="px-8 py-3 rounded-lg text-white font-medium hover:opacity-90 transition-all"
+                    style={{ backgroundColor: brandBlue }}
+                  >
+                    Close
+                  </button>
                 </div>
-                
-                <button 
-                  onClick={emailQuote} 
-                  disabled={!email || sending} 
-                  className="w-full mt-4 rounded-lg px-4 py-3 text-white font-medium transition-opacity hover:opacity-90 disabled:opacity-50" 
-                  style={{ backgroundColor: brandBlue }}
-                >
-                  {sending ? 'Sending PDF…' : 'Send Quote PDF'}
-                </button>
-
-                {sentOk === true && (
-                  <div className="bg-green-50 text-green-700 px-4 py-3 rounded-lg mt-4 text-sm border border-green-100 flex items-center gap-2">
-                    <span>✓</span> Sent! Check your inbox for “Your savings quote”.
+              ) : (
+                <>
+                  <div className="text-center mb-8">
+                    <h2 className="text-2xl font-bold text-gray-900">Analysis Complete</h2>
+                    <p className="text-gray-600">Here is what we found from your statement.</p>
                   </div>
-                )}
-                
-                {sentOk === false && (
-                  <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mt-4 text-sm border border-red-100">
-                    {error || 'Could not send email. Please try again.'}
-                  </div>
-                )}
-              </div>
 
-              {/* --- NEW LINK: Opens Calendly --- */}
-              <div className="text-center">
-                <p className="text-gray-600 text-sm mb-3">Prefer to discuss these savings with a human?</p>
-                
-                <a 
-                  href={CALENDLY_URL}
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="block w-full text-center rounded-lg px-4 py-3 border-2 border-gray-200 text-gray-700 font-semibold hover:border-blue-500 hover:text-blue-600 transition-all"
-                >
-                  Book a Call Now
-                </a>
-              </div>
+                  <div className="bg-[#5170ff10] border border-blue-100 rounded-2xl p-6 shadow-sm mb-8">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-1">Estimated savings</h3>
+                    <p className="text-sm text-gray-600 mb-4">Based on the statement you uploaded and standard rates.</p>
+                    
+                    <dl className="space-y-3 text-sm text-gray-800">
+                      <div className="flex justify-between py-2 border-b border-blue-200/50">
+                        <dt className="font-medium">Current monthly cost</dt>
+                        <dd>£{data.currentMonthlyCost.toFixed(2)}</dd>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-blue-200/50">
+                        <dt className="font-medium">New monthly cost</dt>
+                        <dd>£{data.newMonthlyCost.toFixed(2)}</dd>
+                      </div>
+                      <div className="flex justify-between py-2 text-green-700 font-semibold text-base">
+                        <dt>Monthly saving</dt>
+                        <dd>£{data.monthlySaving.toFixed(2)}</dd>
+                      </div>
+                      <div className="flex justify-between py-2 text-green-700 font-bold text-lg bg-green-50 rounded px-3 -mx-3">
+                        <dt>Annual saving</dt>
+                        <dd>£{data.annualSaving.toFixed(2)}</dd>
+                      </div>
+                    </dl>
+                  </div>
+
+                  <div className="bg-gray-50 border rounded-2xl p-6 mb-6">
+                    <h4 className="text-lg font-semibold mb-1">Email me my quote</h4>
+                    <p className="text-sm text-gray-600 mb-4">We’ll send a one‑page PDF of your savings. No spam.</p>
+                    
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <input 
+                        value={name} 
+                        onChange={e=>setName(e.target.value)} 
+                        placeholder="Business name (optional)" 
+                        className="border rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 outline-none" 
+                      />
+                      <input 
+                        value={email} 
+                        onChange={e=>setEmail(e.target.value)} 
+                        placeholder="Email address" 
+                        className="border rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 outline-none" 
+                      />
+                    </div>
+                    
+                    <button 
+                      onClick={emailQuote} 
+                      disabled={!email || sending} 
+                      className="w-full mt-4 rounded-lg px-4 py-3 text-white font-medium transition-opacity hover:opacity-90 disabled:opacity-50" 
+                      style={{ backgroundColor: brandBlue }}
+                    >
+                      {sending ? 'Sending PDF…' : 'Send Quote PDF'}
+                    </button>
+
+                    {sentOk === true && (
+                      <div className="bg-green-50 text-green-700 px-4 py-3 rounded-lg mt-4 text-sm border border-green-100 flex items-center gap-2">
+                        <span>✓</span> Sent! Check your inbox for “Your savings quote”.
+                      </div>
+                    )}
+                    
+                    {sentOk === false && (
+                      <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mt-4 text-sm border border-red-100">
+                        {error || 'Could not send email. Please try again.'}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* --- NEW LINK: Opens Calendly --- */}
+                  <div className="text-center">
+                    <p className="text-gray-600 text-sm mb-3">Prefer to discuss these savings with a human?</p>
+                    
+                    <a 
+                      href={CALENDLY_URL}
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="block w-full text-center rounded-lg px-4 py-3 border-2 border-gray-200 text-gray-700 font-semibold hover:border-blue-500 hover:text-blue-600 transition-all"
+                    >
+                      Book a Call Now
+                    </a>
+                  </div>
+                </>
+              )}
 
             </div>
           </div>

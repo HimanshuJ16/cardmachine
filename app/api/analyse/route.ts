@@ -91,7 +91,57 @@ export async function POST(req: NextRequest) {
     
     console.log("AI extracted fields:", fields);
 
-    // --- Pricing Logic ---
+    // --- VALIDATION LOGIC ---
+    // A valid merchant statement must have meaningful Turnover AND Fees.
+    // If the AI found 0 for fees, it is likely a non-merchant document (e.g., gas bill).
+    const isValidStatement = 
+        fields.monthTurnover > 10 && 
+        fields.currentFeesMonthly !== null && 
+        fields.currentFeesMonthly > 0;
+
+    if (!isValidStatement) {
+        console.warn("Analysis failed validation (Turnover/Fees missing). Triggering manual review.");
+
+        // 1. Send 'Review Needed' Email to Admin
+        try {
+            await sendEmail({
+                to: 'quotes@cardmachinequote.com', // Internal notification
+                subject: `ACTION REQUIRED: Manual Review for ${fileName}`,
+                html: `
+                    <h2>Analysis Failed - Manual Review Required</h2>
+                    <p>A user uploaded a document that could not be automatically analysed (likely not a merchant statement or bad scan).</p>
+                    <ul>
+                        <li><strong>File Name:</strong> ${fileName}</li>
+                        <li><strong>User Email:</strong> ${userEmail || 'Not provided'}</li>
+                        <li><strong>Extracted Turnover:</strong> £${fields.monthTurnover}</li>
+                        <li><strong>Extracted Fees:</strong> £${fields.currentFeesMonthly}</li>
+                    </ul>
+                    <p>Please review the attached file and contact the user manually if needed.</p>
+                `,
+                attachments: fileBuffer ? [{ filename: fileName, content: fileBuffer }] : []
+            });
+        } catch (e) { console.error("Manual review email failed", e); }
+
+        // 2. Return 'Manual Required' result to frontend
+        // We zero out the financial fields so the types stay consistent
+        return NextResponse.json({ 
+            status: 'ok', 
+            result: { 
+                manualRequired: true,
+                parsingStatus: 'failed',
+                businessName,
+                userEmail,
+                providerName: 'Unknown',
+                currentMonthlyCost: 0, newMonthlyCost: 0, monthlySaving: 0, annualSaving: 0,
+                currentTransactionFees: 0, currentTerminalFees: 0, currentOtherFees: 0,
+                cmqTransactionFees: 0, cmqAuthFees: 0, cmqOtherFees: 0,
+                matchedDebitRate: 0, matchedCreditRate: 0, matchedOtherRate: 0,
+                terminalFee: 0, authFee: 0
+            } 
+        });
+    }
+
+    // --- Pricing Logic (Only runs if Valid) ---
     const pricingInput: QuoteInputs = {
       monthTurnover: fields.monthTurnover,
       mix: fields.mix,
@@ -101,6 +151,7 @@ export async function POST(req: NextRequest) {
       terminalsCount
     };
 
+    // (Double check turnover just in case, though handled by isValidStatement)
     if (!fields.monthTurnover || fields.monthTurnover < 1) {
         throw new Error("Invalid turnover extracted");
     }
@@ -138,7 +189,7 @@ export async function POST(req: NextRequest) {
       manualRequired: false
     };
 
-    // --- Send Email ---
+    // --- Send Success Email ---
     try {
         await sendEmail({
         to: 'quotes@cardmachinequote.com',
