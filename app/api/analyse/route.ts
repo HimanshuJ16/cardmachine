@@ -54,15 +54,12 @@ export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get("content-type") || "";
 
-    // We expect Multipart Form Data now for ALL requests (to ensure file attachment exists)
     if (!contentType.includes("multipart/form-data")) {
       throw new Error("Unsupported Content-Type. Expecting Multipart Form Data.");
     }
 
     const form = await req.formData();
     const file = form.get("file") as File;
-    
-    // Check for Client-Side OCR Text
     const extractedText = form.get("extractedText") as string;
 
     businessName = (form.get("businessName") as string) || "";
@@ -72,18 +69,14 @@ export async function POST(req: NextRequest) {
 
     if (!file) throw new Error("No file uploaded");
     
-    // Prepare File for Email (Always available now!)
     fileName = file.name;
     const arrayBuffer = await file.arrayBuffer();
     fileBuffer = Buffer.from(arrayBuffer);
 
     if (extractedText) {
-        // CASE A: Image (Client performed OCR)
         console.log("Using client-side extracted text for analysis...");
-        // We use the text for analysis, but we have the original file in 'fileBuffer' for email
         fields = await analyzeTextWithOpenAI(extractedText);
     } else {
-        // CASE B: PDF (Server performs extraction)
         console.log("Processing PDF on server...");
         const pdfText = await extractFromPdf(file);
         fields = await analyzeTextWithOpenAI(pdfText);
@@ -92,38 +85,17 @@ export async function POST(req: NextRequest) {
     console.log("AI extracted fields:", fields);
 
     // --- VALIDATION LOGIC ---
-    // A valid merchant statement must have meaningful Turnover AND Fees.
-    // If the AI found 0 for fees, it is likely a non-merchant document (e.g., gas bill).
     const isValidStatement = 
         fields.monthTurnover > 10 && 
         fields.currentFeesMonthly !== null && 
         fields.currentFeesMonthly > 0;
 
     if (!isValidStatement) {
-        console.warn("Analysis failed validation (Turnover/Fees missing). Triggering manual review.");
+        console.warn("Analysis failed validation. Returning manual review status.");
 
-        // 1. Send 'Review Needed' Email to Admin
-        try {
-            await sendEmail({
-                to: 'quotes@cardmachinequote.com', // Internal notification
-                subject: `ACTION REQUIRED: Manual Review for ${fileName}`,
-                html: `
-                    <h2>Analysis Failed - Manual Review Required</h2>
-                    <p>A user uploaded a document that could not be automatically analysed (likely not a merchant statement or bad scan).</p>
-                    <ul>
-                        <li><strong>File Name:</strong> ${fileName}</li>
-                        <li><strong>User Email:</strong> ${userEmail || 'Not provided'}</li>
-                        <li><strong>Extracted Turnover:</strong> £${fields.monthTurnover}</li>
-                        <li><strong>Extracted Fees:</strong> £${fields.currentFeesMonthly}</li>
-                    </ul>
-                    <p>Please review the attached file and contact the user manually if needed.</p>
-                `,
-                attachments: fileBuffer ? [{ filename: fileName, content: fileBuffer }] : []
-            });
-        } catch (e) { console.error("Manual review email failed", e); }
-
-        // 2. Return 'Manual Required' result to frontend
-        // We zero out the financial fields so the types stay consistent
+        // NOTE: We do NOT send the email here anymore. 
+        // We wait for the frontend to capture the user's email address first.
+        
         return NextResponse.json({ 
             status: 'ok', 
             result: { 
@@ -150,11 +122,6 @@ export async function POST(req: NextRequest) {
       terminalOption: terminalOption as any,
       terminalsCount
     };
-
-    // (Double check turnover just in case, though handled by isValidStatement)
-    if (!fields.monthTurnover || fields.monthTurnover < 1) {
-        throw new Error("Invalid turnover extracted");
-    }
 
     const tier = pickTier(RATES, pricingInput.monthTurnover);
     const savings = computeSavings(pricingInput);
@@ -189,7 +156,7 @@ export async function POST(req: NextRequest) {
       manualRequired: false
     };
 
-    // --- Send Success Email ---
+    // --- Send Success Email (Only for successful quotes) ---
     try {
         await sendEmail({
         to: 'quotes@cardmachinequote.com',

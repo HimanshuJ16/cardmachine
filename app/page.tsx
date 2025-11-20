@@ -6,11 +6,9 @@ import Navbar from '@/components/Navbar'
 import { createWorker } from 'tesseract.js'
 
 export default function Page() {
-  // Configuration
   const brandBlue = '#5170ff'
   const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || 'https://calendly.com/les-cardmachinequote/30min'
 
-  // State
   const [data, setData] = React.useState<any>(null)
   const [loading, setLoading] = React.useState(false)
   const [statusText, setStatusText] = React.useState('')
@@ -19,18 +17,18 @@ export default function Page() {
   const [sending, setSending] = React.useState(false)
   const [sentOk, setSentOk] = React.useState<null | boolean>(null)
   const [error, setError] = React.useState<string>('')
+  
+  // New State: Keep track of the file so we can re-send it if manual review is needed
+  const [currentFile, setCurrentFile] = React.useState<File | null>(null)
 
-  // Helper to check if manual review is triggered
   const isManualReview = data?.manualRequired === true
 
   async function performClientSideOCR(file: File): Promise<string> {
     setStatusText("Initializing OCR engine...")
     const worker = await createWorker("eng")
-    
     setStatusText("Scanning image text...")
     const ret = await worker.recognize(file)
     const text = ret.data.text
-    
     await worker.terminate()
     return text
   }
@@ -40,47 +38,31 @@ export default function Page() {
     setSentOk(null)
     setError('')
     setData(null)
+    setCurrentFile(f) // Store file
     setStatusText('Analyzing...')
 
     try {
-      // Create FormData to send FILE + Optional Text
       const form = new FormData()
       form.append('file', f)
       form.append('terminalOption', 'none')
       form.append('terminalsCount', '1')
-      // Add these if you want to pass them from the upload stage
-      // form.append('businessName', name) 
-      // form.append('email', email)
 
       if (f.type.startsWith("image/")) {
-        // --- OPTION A: IMAGE (Run OCR locally) ---
         console.log("Image detected. Running Client-Side OCR...")
         const extractedText = await performClientSideOCR(f)
-        
         if (extractedText.length < 20) throw new Error("OCR failed: Image text not readable")
-
-        // Append the text we extracted so the server doesn't have to
         form.append('extractedText', extractedText)
-        
         setStatusText("Analyzing data...")
-
       } else {
-        // --- OPTION B: PDF (Just set status) ---
         setStatusText("Uploading PDF...")
       }
 
-      // Send to API (Always Multipart/FormData now)
-      const res = await fetch('/api/analyse', { 
-        method: 'POST', 
-        body: form 
-      })
-
+      const res = await fetch('/api/analyse', { method: 'POST', body: form })
       const json = await res.json()
       
       if (!res.ok) {
         throw new Error(json.error || json.message || 'Failed to analyse file.')
       }
-      
       setData(json.result) 
 
     } catch (e:any) {
@@ -117,9 +99,41 @@ export default function Page() {
     }
   }
 
+  // NEW: Function to handle Manual Review Submission
+  async function sendManualReview() {
+    if (!email || !currentFile) return
+    setSending(true)
+    setError('')
+    setSentOk(null)
+
+    try {
+      const form = new FormData()
+      form.append('file', currentFile)
+      form.append('email', email)
+      form.append('businessName', name)
+
+      const res = await fetch('/api/manual-review', { 
+        method: 'POST', 
+        body: form 
+      })
+      
+      if (!res.ok) throw new Error("Failed to submit review")
+      
+      setSentOk(true)
+    } catch (e) {
+      console.error(e)
+      setError("Could not send request. Please try again.")
+      setSentOk(false)
+    } finally {
+      setSending(false)
+    }
+  }
+
   function closeModal() {
     setData(null)
     setSentOk(null)
+    setEmail('')
+    setName('')
   }
 
   return (
@@ -161,7 +175,8 @@ export default function Page() {
 
       <section className="bg-gray-50">
         <div className="max-w-6xl mx-auto px-6 py-10 grid md:grid-cols-2 gap-8">
-          <div>
+          {/* ... FAQ Content ... */}
+           <div>
             <h3 className="text-xl font-semibold">FAQs</h3>
             <details className="mt-4 bg-white rounded-xl p-4 border"><summary className="font-medium cursor-pointer">Can you read any statement?</summary><p className="mt-2 text-sm text-gray-700">Yes. We support all major merchant services providers automatically, and our system can read most PDF or image-based statements using AI.</p></details>
             <details className="mt-3 bg-white rounded-xl p-4 border"><summary className="font-medium cursor-pointer">What happens to my data?</summary><p className="mt-2 text-sm text-gray-700">We process your file solely to generate your estimate and produce your personalised quote.</p></details>
@@ -178,7 +193,7 @@ export default function Page() {
 
       <footer className="border-t">
         <div className="max-w-6xl mx-auto px-6 py-8 text-sm text-gray-600 flex flex-col items-center gap-4 md:flex-row">
-          <div className="flex flex-col items-center gap-2 md:flex-row md:gap-3">
+           <div className="flex flex-col items-center gap-2 md:flex-row md:gap-3">
             <img src="/logo-cmq2.png" alt="CardMachineQuote.com" className="h-6 w-auto object-contain" />
             <span>© {new Date().getFullYear()} CardMachineQuote.com</span>
           </div>
@@ -207,27 +222,49 @@ export default function Page() {
 
             <div className="p-6 md:p-10">
               
-              {/* --- NEW LOGIC: Check for Manual Review Flag --- */}
+              {/* --- CASE 1: MANUAL REVIEW NEEDED --- */}
               {isManualReview ? (
-                <div className="flex flex-col items-center text-center py-10">
-                  <div className="w-20 h-20 bg-yellow-50 rounded-full flex items-center justify-center mb-6">
-                    <svg className="w-10 h-10 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="flex flex-col items-center text-center py-6">
+                  <div className="w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-3">Unable to read statement</h2>
-                  <p className="text-gray-600 text-lg max-w-md mx-auto mb-8">
-                    We were unable to read the statement correctly. It has been passed to one of our team to review manually.
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Unable to read statement</h2>
+                  <p className="text-gray-600 max-w-md mx-auto mb-6">
+                    We couldn't automatically analyse this file. Please enter your email below and our team will manually review it for you.
                   </p>
-                  <button 
-                    onClick={closeModal}
-                    className="px-8 py-3 rounded-lg text-white font-medium hover:opacity-90 transition-all"
-                    style={{ backgroundColor: brandBlue }}
-                  >
-                    Close
-                  </button>
+
+                  {sentOk === true ? (
+                    <div className="bg-green-50 text-green-800 px-6 py-4 rounded-xl border border-green-100">
+                      <p className="font-semibold text-lg">Request Sent! ✓</p>
+                      <p className="text-sm mt-1">We will be in touch shortly.</p>
+                      <button onClick={closeModal} className="mt-4 text-sm underline text-green-700 hover:text-green-900">Close</button>
+                    </div>
+                  ) : (
+                    <div className="w-full max-w-sm text-left">
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Your Email Address</label>
+                      <input 
+                        type="email"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        placeholder="name@company.com"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none mb-3"
+                      />
+                      <button 
+                        onClick={sendManualReview}
+                        disabled={!email || sending}
+                        className="w-full rounded-lg px-4 py-3 text-white font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+                        style={{ backgroundColor: brandBlue }}
+                      >
+                        {sending ? 'Sending Request...' : 'Request Manual Quote'}
+                      </button>
+                      {error && <p className="text-red-600 text-sm mt-2 text-center">{error}</p>}
+                    </div>
+                  )}
                 </div>
               ) : (
+                /* --- CASE 2: SUCCESSFUL ANALYSIS --- */
                 <>
                   <div className="text-center mb-8">
                     <h2 className="text-2xl font-bold text-gray-900">Analysis Complete</h2>
@@ -237,7 +274,6 @@ export default function Page() {
                   <div className="bg-[#5170ff10] border border-blue-100 rounded-2xl p-6 shadow-sm mb-8">
                     <h3 className="text-xl font-semibold text-gray-900 mb-1">Estimated savings</h3>
                     <p className="text-sm text-gray-600 mb-4">Based on the statement you uploaded and standard rates.</p>
-                    
                     <dl className="space-y-3 text-sm text-gray-800">
                       <div className="flex justify-between py-2 border-b border-blue-200/50">
                         <dt className="font-medium">Current monthly cost</dt>
@@ -291,7 +327,6 @@ export default function Page() {
                         <span>✓</span> Sent! Check your inbox for “Your savings quote”.
                       </div>
                     )}
-                    
                     {sentOk === false && (
                       <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mt-4 text-sm border border-red-100">
                         {error || 'Could not send email. Please try again.'}
@@ -299,22 +334,14 @@ export default function Page() {
                     )}
                   </div>
 
-                  {/* --- NEW LINK: Opens Calendly --- */}
                   <div className="text-center">
                     <p className="text-gray-600 text-sm mb-3">Prefer to discuss these savings with a human?</p>
-                    
-                    <a 
-                      href={CALENDLY_URL}
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="block w-full text-center rounded-lg px-4 py-3 border-2 border-gray-200 text-gray-700 font-semibold hover:border-blue-500 hover:text-blue-600 transition-all"
-                    >
+                    <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="block w-full text-center rounded-lg px-4 py-3 border-2 border-gray-200 text-gray-700 font-semibold hover:border-blue-500 hover:text-blue-600 transition-all">
                       Book a Call Now
                     </a>
                   </div>
                 </>
               )}
-
             </div>
           </div>
         </div>
