@@ -139,6 +139,25 @@ Do NOT include:
 - margin
 - interchange
 
+If ANY MSC line exists anywhere:
+currentFeesMonthly must NOT be 0.
+
+Fee Extraction Priority:
+1) Monthly MSC summary
+2) Invoice monthly total
+3) Sum of fee category totals:
+   - Variable MSC
+   - Scheme fees
+   - Interchange
+   - Margin
+4) Sum of daily “Total MSC” values
+5) If only fixed recurring fees exist:
+   → currentFeesMonthly = 0
+6) If absolutely no MSC data:
+   → Estimate currentFeesMonthly using:
+      estimatedFee = monthTurnover * 0.012
+   → Include note: “Estimated due to no MSC rows”
+
 ════════════════════════════
 TRANSACTION COUNT
 ════════════════════════════
