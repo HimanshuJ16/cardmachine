@@ -9,7 +9,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     
     // Basic validation to ensure required fields exist
-    // (We can trust the frontend validation mostly, but good to check a few)
     if (!body.email || !body.companyName || !body.firstName) {
       return NextResponse.json({ status: 'error', message: "Missing required fields" }, { status: 400 });
     }
@@ -17,6 +16,7 @@ export async function POST(req: NextRequest) {
     const formData: OrderFormData = {
       companyName: body.companyName || '',
       businessAddress: body.businessAddress || '',
+      businessPostalCode: body.businessPostalCode || '', // NEW FIELD
       email: body.email || '',
       phone: body.phone || '',
       companyType: body.companyType || '',
@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
       dobMonth: body.dobMonth || '',
       dobYear: body.dobYear || '',
       residentialAddress: body.residentialAddress || '',
+      residentialPostalCode: body.residentialPostalCode || '', // NEW FIELD
       terminalChoice: body.terminalChoice || '',
       turnoverBand: body.turnoverBand || '',
     };

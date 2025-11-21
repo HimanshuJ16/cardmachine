@@ -20,6 +20,7 @@ export default function OrderPage() {
     // Step 1
     companyName: '',
     businessAddress: '',
+    businessPostalCode: '', // NEW FIELD
     email: '',
     phone: '',
     companyType: '',
@@ -31,6 +32,7 @@ export default function OrderPage() {
     dobMonth: '',
     dobYear: '',
     residentialAddress: '',
+    residentialPostalCode: '', // NEW FIELD
 
     // Step 3
     terminalChoice: '',
@@ -50,6 +52,7 @@ export default function OrderPage() {
       const isStep1Valid = 
         formData.companyName && 
         formData.businessAddress && 
+        formData.businessPostalCode && // VALIDATION
         formData.email && 
         formData.phone && 
         formData.companyType;
@@ -70,7 +73,8 @@ export default function OrderPage() {
         formData.dobDay && 
         formData.dobMonth && 
         formData.dobYear && 
-        formData.residentialAddress;
+        formData.residentialAddress &&
+        formData.residentialPostalCode; // VALIDATION
 
       if (!isStep2Valid) {
         setShowValidation(true) // Trigger error messages
@@ -194,6 +198,19 @@ export default function OrderPage() {
                   className={getInputClass(showValidation && !formData.businessAddress)}
                 />
                 {showValidation && !formData.businessAddress && <p className="text-red-500 text-xs mt-1">ⓘ Business address is required.</p>}
+              </div>
+
+              {/* Business Postcode - NEW */}
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Business Postcode *</label>
+                <input 
+                  name="businessPostalCode"
+                  value={formData.businessPostalCode}
+                  onChange={handleChange}
+                  placeholder="Enter your postcode" 
+                  className={getInputClass(showValidation && !formData.businessPostalCode)}
+                />
+                {showValidation && !formData.businessPostalCode && <p className="text-red-500 text-xs mt-1">ⓘ Business postcode is required.</p>}
               </div>
 
               {/* Email */}
@@ -349,6 +366,19 @@ export default function OrderPage() {
                 {showValidation && !formData.residentialAddress && <p className="text-red-500 text-xs mt-1">ⓘ Residential address is required.</p>}
               </div>
 
+              {/* Residential Postcode - NEW */}
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Residential Postcode *</label>
+                <input 
+                  name="residentialPostalCode"
+                  value={formData.residentialPostalCode}
+                  onChange={handleChange}
+                  placeholder="Enter your postcode" 
+                  className={getInputClass(showValidation && !formData.residentialPostalCode)}
+                />
+                {showValidation && !formData.residentialPostalCode && <p className="text-red-500 text-xs mt-1">ⓘ Residential postcode is required.</p>}
+              </div>
+
               <div className="flex justify-between pt-4">
                 <button 
                   onClick={prevStep}
@@ -366,7 +396,7 @@ export default function OrderPage() {
             </div>
           )}
 
-          {/* --- STEP 3: Order Choice --- */}
+          {/* --- STEP 3: Order Choice (No changes) --- */}
           {step === 3 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
               <h2 className="text-lg text-slate-700 mb-4">Your order choice:</h2>
@@ -402,7 +432,7 @@ export default function OrderPage() {
                       onChange={handleChange}
                       className="w-5 h-5 text-blue-600"
                     />
-                    <span className="text-slate-700">Rent for £20 per month (18 month contract)</span>
+                    <span className="text-slate-700">Rent for £20 per month (12 month contract)</span>
                   </label>
                 </div>
               </div>

@@ -1,6 +1,6 @@
 import type { SavingsResult } from "@/app/api/analyse/route";
 
-// --- Existing Savings Email Renderer ---
+// --- Existing Savings Email Renderer (No Changes) ---
 export function renderSavingsEmailHTML(data: SavingsResult): string {
   const {
     businessName,
@@ -81,6 +81,7 @@ export type OrderFormData = {
   // Step 1
   companyName: string;
   businessAddress: string;
+  businessPostalCode: string; // NEW FIELD
   email: string;
   phone: string;
   companyType: string;
@@ -92,6 +93,7 @@ export type OrderFormData = {
   dobMonth: string;
   dobYear: string;
   residentialAddress: string;
+  residentialPostalCode: string; // NEW FIELD
   
   // Step 3
   terminalChoice: string;
@@ -108,6 +110,7 @@ export function renderOrderEmailHTML(data: OrderFormData): string {
         <h3 style="margin-top: 0; border-bottom: 1px solid #ddd; padding-bottom: 10px;">1. Application Details</h3>
         <p><strong>Company Name:</strong> ${data.companyName}</p>
         <p><strong>Address:</strong> ${data.businessAddress}</p>
+        <p><strong>Postcode:</strong> ${data.businessPostalCode}</p> 
         <p><strong>Email:</strong> <a href="mailto:${data.email}">${data.email}</a></p>
         <p><strong>Phone:</strong> ${data.phone}</p>
         <p><strong>Company Type:</strong> ${data.companyType}</p>
@@ -118,6 +121,7 @@ export function renderOrderEmailHTML(data: OrderFormData): string {
         <p><strong>Name:</strong> ${data.firstName} ${data.lastName}</p>
         <p><strong>Date of Birth:</strong> ${data.dobDay}/${data.dobMonth}/${data.dobYear}</p>
         <p><strong>Residential Address:</strong> ${data.residentialAddress}</p>
+        <p><strong>Postcode:</strong> ${data.residentialPostalCode}</p> 
       </div>
 
       <div style="background: #eff6ff; padding: 15px; border-radius: 8px; border: 1px solid #bfdbfe;">
