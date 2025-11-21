@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/email'
-// We no longer need priceCMQ as the calculations are passed in the payload
-// import { priceCMQ, QuoteInputs } from '@/lib/pricing' 
 
 export const runtime = 'nodejs'
 
@@ -59,7 +57,7 @@ const emailTemplate = `
       style="background: #5170ff; color:#fff; padding: 14px 24px; border-radius:8px; text-decoration:none; display: inline-block; font-size:15px;">
       Book a Call
     </a>
-    <a href="https://cardmachinequote.com/order"
+    <a href="{{signUpUrl}}"
       style="background: #5170ff; color:#fff; padding: 14px 24px; border-radius:8px; text-decoration:none; display: inline-block; font-size:15px;">
       Sign Up
     </a>
@@ -76,17 +74,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
-    // 1. Extract Data from the new Payload Structure
-    // The frontend passes the full JSON response from /api/analyse, which is { status: 'ok', result: SavingsResult }
-    // We handle both the wrapper and direct object just in case
+    // 1. Extract Data
     const data = analysePayload.result || analysePayload
 
-    // Check if we have valid data
     if (!data || typeof data.newMonthlyCost === 'undefined') {
       return NextResponse.json({ error: 'Invalid data format in payload' }, { status: 400 })
     }
 
-    // 2. Map SavingsResult fields to Template Variables
+    // 2. Map SavingsResult fields
     const currentMonthly = data.currentMonthlyCost || 0
     const currentTxnFees = data.currentTransactionFees || 0
     const currentTerminalFees = data.currentTerminalFees || 0
@@ -101,16 +96,28 @@ export async function POST(req: NextRequest) {
 
     const calendlyUrl = process.env.NEXT_PUBLIC_CALENDLY_URL || 'https://calendly.com'
 
-    // 3. Build Qualified Rates HTML
-    // Using the matched rates from the result object
+    // 3. Build Qualified Rates HTML & Determine Sign Up Option
     const debitRate = data.matchedDebitRate || 0
     const creditRate = data.matchedCreditRate || 0
     const otherRate = data.matchedOtherRate || 0
     const authFee = data.authFee || 0
     const terminalFee = data.terminalFee || 0
 
-    let ratesListHtml = ''
+    // --- LOGIC: Determine correct order option based on Debit Rate ---
+    // Option 1 (Default): £5k-£15k (0.79%)
+    // Option 2: £15k-£30k (0.35%)
+    // Option 3: £30k+ (0.25%)
     
+    let signupOption = 1; // Default
+    if (Math.abs(debitRate - 0.35) < 0.01) {
+      signupOption = 2;
+    } else if (Math.abs(debitRate - 0.25) < 0.01) {
+      signupOption = 3;
+    }
+
+    const signUpUrl = `https://cardmachinequote.com/order?option=${signupOption}`
+
+    let ratesListHtml = ''
     if (debitRate > 0) ratesListHtml += `<li>Debit cards: <strong>${debitRate.toFixed(2)}%</strong></li>`
     if (creditRate > 0) ratesListHtml += `<li>Credit cards: <strong>${creditRate.toFixed(2)}%</strong></li>`
     if (otherRate > 0) ratesListHtml += `<li>International/Comm: <strong>${otherRate.toFixed(2)}%</strong></li>`
@@ -142,6 +149,7 @@ export async function POST(req: NextRequest) {
       .replace(/{{cmqTxnFees}}/g, cmqTxnFees.toFixed(2))
       .replace(/{{cmqAuthFees}}/g, cmqAuthFees.toFixed(2))
       .replace(/{{calendlyUrl}}/g, calendlyUrl)
+      .replace(/{{signUpUrl}}/g, signUpUrl) // NEW REPLACEMENT
       .replace(/{{qualifiedRatesHtml}}/g, qualifiedRatesHtml)
 
     // 5. Send email
