@@ -171,7 +171,7 @@ const Hero = () => {
             maskImage: "linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%)",
             WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%)",
           }}
-        />
+        />    
       </div>
 
       <div className="max-w-6xl mx-auto flex flex-col items-center relative z-10">
@@ -244,9 +244,18 @@ const Hero = () => {
           </div>
         </div>
 
+        <div className="mt-6 w-full flex justify-center">
+          <a
+            href="/statements-download"
+            className="inline-flex items-center justify-center rounded-full px-6 py-2 text-sm sm:text-base text-blue-600 font-medium border-2 border-blue-100 bg-white hover:bg-blue-50 transition-colors shadow-sm"
+          >
+            Download Your Merchant Service Statement
+          </a>
+        </div>
+
         {/* --- FLOATING SAVINGS CARDS --- */}
         {/* Left Card - Hidden on mobile/tablet, visible on large desktop */}
-        <div className="hidden xl:block absolute -left-12 2xl:-left-16 top-[85%] -translate-y-1/2 -rotate-12 hover:rotate-0 transition-transform duration-500 z-20">
+        <div className="hidden xl:block absolute -left-12 2xl:-left-16 top-[75%] -translate-y-1/2 -rotate-12 hover:rotate-0 transition-transform duration-500 z-20">
           <div className="bg-white p-3 rounded-xl shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] w-56 2xl:w-60 border border-slate-100">
             <div className="mb-2">
               <p className="text-sm text-slate-900 font-bold mb-0.5">Estimated savings</p>
